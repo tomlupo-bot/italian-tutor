@@ -1,0 +1,204 @@
+"use client";
+
+import { useCallback } from "react";
+import type { VocabCard } from "../data/vocab";
+import { cn } from "../lib/cn";
+import { Volume2 } from "lucide-react";
+
+export type CardMode = "classic" | "reverse" | "listening" | "cloze";
+
+function speakItalian(text: string, rate = 0.85) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "it-IT";
+  utterance.rate = rate;
+  const voices = window.speechSynthesis.getVoices();
+  const italian = voices.find((v) => v.lang.startsWith("it"));
+  if (italian) utterance.voice = italian;
+  window.speechSynthesis.speak(utterance);
+}
+
+function getClozeData(card: VocabCard): { sentence: string; answer: string } | null {
+  const word = card.it.toLowerCase().replace(/^(il |la |lo |l'|i |le |gli |un |una |uno )/, "");
+  const ex = card.ex;
+  // Try to find the word in the example
+  const idx = ex.toLowerCase().indexOf(word.toLowerCase());
+  if (idx === -1) return null;
+  const blank = ex.substring(0, idx) + "_____" + ex.substring(idx + word.length);
+  return { sentence: blank, answer: ex.substring(idx, idx + word.length) };
+}
+
+export default function Flashcard({
+  card,
+  flipped,
+  onFlip,
+  mode = "classic",
+  speechRate = 0.85,
+}: {
+  card: VocabCard;
+  flipped: boolean;
+  onFlip: () => void;
+  mode?: CardMode;
+  speechRate?: number;
+}) {
+  const handleSpeak = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      speakItalian(card.it, speechRate);
+    },
+    [card.it, speechRate]
+  );
+
+  const handleSpeakExample = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      speakItalian(card.ex, speechRate);
+    },
+    [card.ex, speechRate]
+  );
+
+  const levelColors: Record<string, string> = {
+    A1: "bg-success/20 text-success",
+    A2: "bg-accent/20 text-accent-light",
+    B1: "bg-warn/20 text-warn",
+    B2: "bg-danger/20 text-danger",
+  };
+
+  const levelBadge = card.level ? (
+    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", levelColors[card.level] || "bg-white/5 text-white/30")}>
+      {card.level}
+    </span>
+  ) : null;
+
+  // ─── CLASSIC: IT → EN ─────────────────────────────
+  if (mode === "classic") {
+    return (
+      <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+        <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
+          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+            <p className="text-2xl font-semibold text-center">{card.it}</p>
+            <div className="flex items-center gap-2 mt-3">
+              {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
+              {levelBadge}
+            </div>
+            <div className="flex items-center gap-3 mt-4">
+              <button onClick={handleSpeak} className="p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition" title="Hear pronunciation">
+                <Volume2 size={16} />
+              </button>
+              <p className="text-white/30 text-sm">Tap to reveal</p>
+            </div>
+          </div>
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
+            <p className="text-lg font-medium text-accent-light">{card.en}</p>
+            <div className="flex items-center gap-2 mt-3">
+              <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
+              <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" title="Hear example">
+                <Volume2 size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── REVERSE: EN → IT ─────────────────────────────
+  if (mode === "reverse") {
+    return (
+      <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+        <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
+          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+            <p className="text-2xl font-semibold text-center text-accent-light">{card.en}</p>
+            <div className="flex items-center gap-2 mt-3">
+              {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
+              {levelBadge}
+            </div>
+            <p className="text-white/30 text-sm mt-4">Can you say it in Italian?</p>
+          </div>
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
+            <p className="text-xl font-semibold">{card.it}</p>
+            <div className="flex items-center gap-2 mt-3">
+              <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
+              <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" title="Hear example">
+                <Volume2 size={14} />
+              </button>
+            </div>
+            <button onClick={handleSpeak} className="mt-3 p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition" title="Hear word">
+              <Volume2 size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── LISTENING: Audio → Guess ─────────────────────
+  if (mode === "listening") {
+    return (
+      <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+        <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
+          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+            <button onClick={handleSpeak} className="p-5 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition mb-4" title="Listen">
+              <Volume2 size={32} />
+            </button>
+            <p className="text-white/40 text-sm">Listen and guess</p>
+            <div className="flex items-center gap-2 mt-2">{levelBadge}</div>
+          </div>
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
+            <p className="text-xl font-semibold">{card.it}</p>
+            <p className="text-lg text-accent-light mt-1">{card.en}</p>
+            <div className="flex items-center gap-2 mt-3">
+              <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
+              <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0">
+                <Volume2 size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── CLOZE: Fill the blank ────────────────────────
+  const cloze = getClozeData(card);
+  const clozeSentence = cloze?.sentence || `_____ = ${card.en}`;
+  const clozeAnswer = cloze?.answer || card.it;
+
+  return (
+    <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+      <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
+        <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+          <p className="text-xs text-white/30 mb-2">📝 Fill the blank</p>
+          <p className="text-lg text-center leading-relaxed">&ldquo;{clozeSentence}&rdquo;</p>
+          <div className="flex items-center gap-2 mt-3">
+            {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
+            {levelBadge}
+          </div>
+          <p className="text-white/30 text-sm mt-3">Tap to reveal</p>
+        </div>
+        <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
+          <p className="text-lg text-center leading-relaxed">
+            &ldquo;{card.ex.replace(
+              new RegExp(`(${clozeAnswer})`, "i"),
+              `**$1**`
+            ).split("**").map((part, i) =>
+              i % 2 === 1 ? <strong key={i} className="text-accent-light">{part}</strong> : part
+            )}&rdquo;
+          </p>
+          <p className="text-sm text-white/50 mt-2">{card.en}</p>
+          <div className="flex gap-2 mt-3">
+            <button onClick={handleSpeak} className="p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition">
+              <Volume2 size={14} />
+            </button>
+            <button onClick={handleSpeakExample} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/40 transition">
+              <Volume2 size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export { speakItalian };
