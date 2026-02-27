@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, RefreshCw, BarChart3, Settings } from "lucide-react";
+import { Home, CalendarDays, Zap, BarChart3 } from "lucide-react";
 import { cn } from "../lib/cn";
 
 const items = [
-  { href: "/", label: "Lesson", icon: BookOpen },
-  { href: "/practice", label: "Practice", icon: RefreshCw },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/practice", label: "Practice", icon: Zap },
   { href: "/stats", label: "Stats", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function BottomNav() {
@@ -19,7 +19,9 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur border-t border-white/5 z-50">
       <div className="max-w-lg mx-auto flex items-center justify-around py-2">
         {items.map((item) => {
-          const active = pathname === item.href;
+          const active =
+            pathname === item.href ||
+            (item.href !== "/" && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (
             <Link

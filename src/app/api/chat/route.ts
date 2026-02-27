@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-// Lazy init to avoid build-time crash when env var is missing
 let _openai: OpenAI | null = null;
 function getOpenAI() {
   if (!_openai) {
@@ -41,14 +40,83 @@ Rules:
 \`\`\``;
 }
 
+function buildScenarioPrompt(params: {
+  scenarioTitle: string;
+  scenarioSetup: string;
+  scenarioGoal: string;
+  targetPhrases: { it: string; en: string }[];
+  grammarFocus: string;
+  level: string;
+  unitNumber: number;
+}): string {
+  const phraseList = params.targetPhrases
+    .map((p) => `- "${p.it}" (${p.en})`)
+    .join("\n");
+
+  return `You are Marco, a friendly Roman guy in his 30s. You're warm, encouraging, witty, and you love helping people learn Italian. You have a slight Roman accent and personality.
+
+## Scenario
+You are playing a character in this scenario: "${params.scenarioTitle}"
+Setup: ${params.scenarioSetup}
+The student's goal: ${params.scenarioGoal}
+
+## Rules
+- Stay in character for the scenario. Be natural, like a real conversation.
+- Speak Italian appropriate for ${params.level} level
+- Use simple, clear Italian. Avoid complex grammar beyond ${params.level}.
+- Grammar focus for this unit: ${params.grammarFocus}
+- Be warm and encouraging. This is meant to be fun!
+- Ask ONE question or make ONE statement at a time, then wait for the student's response
+- Keep your responses to 1-3 sentences max
+
+## Target Vocabulary
+The student should practice using these phrases from Unit ${params.unitNumber}:
+${phraseList}
+
+Try to naturally create situations where the student can use these phrases. If they use a target phrase correctly, acknowledge it naturally (don't be overly enthusiastic about it).
+
+## Error Correction
+When the student makes a grammatical error:
+1. First, respond naturally to what they said (showing you understood)
+2. Then include a subtle correction in your response by using the correct form naturally
+3. Also include a JSON block with the correction details:
+\`\`\`json
+{"correction": {"original": "what they wrote wrong", "corrected": "the correct version", "explanation": "brief explanation in English"}}
+\`\`\`
+
+## Ending the Conversation
+After 6-8 exchanges (student messages), wrap up naturally ("È stato un piacere parlare con te! Alla prossima!") and include:
+\`\`\`json
+{"done": true, "errors": [{"original": "...", "corrected": "...", "explanation": "..."}], "newPhrases": ["any new phrases the student learned"], "grammarTip": "one tip about ${params.grammarFocus}"}
+\`\`\`
+
+Do NOT start the conversation — the opening line has already been sent. Wait for the student's first message and respond to it.`;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { messages, topic } = await req.json();
-    const topicId = topic || "sport";
+    const body = await req.json();
+    const { messages, topic, lessonType } = body;
+
+    let systemPrompt: string;
+
+    if (lessonType === "structured_unit" && body.scenarioTitle) {
+      systemPrompt = buildScenarioPrompt({
+        scenarioTitle: body.scenarioTitle,
+        scenarioSetup: body.scenarioSetup || "",
+        scenarioGoal: body.scenarioGoal || "",
+        targetPhrases: body.targetPhrases || [],
+        grammarFocus: body.grammarFocus || "",
+        level: body.level || "A2",
+        unitNumber: body.unitNumber || 1,
+      });
+    } else {
+      systemPrompt = buildSystemPrompt(topic || "sport");
+    }
 
     const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "system", content: buildSystemPrompt(topicId) }, ...messages],
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
       temperature: 0.7,
       max_tokens: 500,
     });
