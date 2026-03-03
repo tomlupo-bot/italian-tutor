@@ -29,6 +29,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   grammar_pattern: "Grammar patterns",
   translation: "Translation",
   error_recognition: "Error spotting",
+  other: "General",
 };
 
 export default function ProgressPage() {
@@ -175,16 +176,14 @@ export default function ProgressPage() {
           </div>
 
           {/* Recent corrections list */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {corrections.recent.map((card: AnyCard) => (
               <div
                 key={card._id}
-                className="flex items-start gap-2 text-xs py-1 border-b border-white/5 last:border-0"
+                className="text-xs py-1.5 border-b border-white/5 last:border-0"
               >
-                <span className="flex-1 text-white/80">{card.it}</span>
-                <span className="text-white/40 text-right max-w-[40%] truncate">
-                  {card.en}
-                </span>
+                <p className="text-white/80">{card.it}</p>
+                <p className="text-white/40 mt-0.5">{card.en}</p>
               </div>
             ))}
           </div>
