@@ -7,16 +7,54 @@ import { Volume2 } from "lucide-react";
 
 export type CardMode = "classic" | "reverse" | "listening" | "cloze";
 
-function speakItalian(text: string, rate = 0.85) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "it-IT";
-  utterance.rate = rate;
+// Cache the Italian voice once loaded
+let cachedItalianVoice: SpeechSynthesisVoice | null = null;
+
+function findItalianVoice(): SpeechSynthesisVoice | null {
+  if (cachedItalianVoice) return cachedItalianVoice;
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
-  const italian = voices.find((v) => v.lang.startsWith("it"));
-  if (italian) utterance.voice = italian;
-  window.speechSynthesis.speak(utterance);
+  const voice = voices.find((v) => v.lang.startsWith("it"));
+  if (voice) cachedItalianVoice = voice;
+  return voice ?? null;
+}
+
+// Pre-load voices (they load async in many browsers)
+if (typeof window !== "undefined" && window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => findItalianVoice();
+  findItalianVoice();
+}
+
+function speakItalian(text: string, rate = 0.85) {
+  if (typeof window === "undefined") return;
+
+  // Try server-side TTS first (guaranteed Italian voice)
+  fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error("TTS API failed");
+      return res.blob();
+    })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+      audio.onended = () => URL.revokeObjectURL(url);
+    })
+    .catch(() => {
+      // Fallback to browser speechSynthesis
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "it-IT";
+      utterance.rate = rate;
+      const voice = findItalianVoice();
+      if (voice) utterance.voice = voice;
+      window.speechSynthesis.speak(utterance);
+    });
 }
 
 function getClozeData(card: VocabCard): { sentence: string; answer: string } | null {
