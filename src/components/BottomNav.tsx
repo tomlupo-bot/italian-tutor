@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, BarChart3 } from "lucide-react";
+import { Home, Calendar, Zap, BarChart3 } from "lucide-react";
 import { cn } from "../lib/cn";
 
 const items = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/practice", label: "Practice", icon: Zap },
   { href: "/progress", label: "Progress", icon: BarChart3 },
 ];
