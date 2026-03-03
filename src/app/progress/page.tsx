@@ -4,13 +4,11 @@ import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import MilestoneBar from "@/components/MilestoneBar";
-import ErrorHeatMap from "@/components/ErrorHeatMap";
 import StreakCalendar from "@/components/StreakCalendar";
 import { getNowWarsaw } from "@/lib/date";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 
-// Group milestones by category
 interface Milestone {
   skillId: string;
   name: string;
@@ -20,14 +18,26 @@ interface Milestone {
   active: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyCard = Record<string, any>;
+
 const LEVEL_ORDER = ["A1", "A2", "B1", "B2"];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  cloze: "Fill-in-the-blank",
+  word_order: "Word order",
+  grammar_pattern: "Grammar patterns",
+  translation: "Translation",
+  error_recognition: "Error spotting",
+};
 
 export default function ProgressPage() {
   const milestones = useQuery(api.milestones.getAll);
   const stats = useQuery(api.sessions.getStats);
+  const allCards = useQuery(api.cards.getAll);
   const { year, month, dateStr: today } = getNowWarsaw();
 
-  // Recent sessions for error heatmap and streak calendar
+  // Recent sessions for streak calendar
   const thirtyDaysAgo = useMemo(() => {
     const d = new Date(today + "T12:00:00");
     d.setDate(d.getDate() - 30);
@@ -47,7 +57,6 @@ export default function ProgressPage() {
       if (!groups[m.category]) groups[m.category] = [];
       groups[m.category].push(m);
     }
-    // Sort within each group by level then name
     for (const cat of Object.keys(groups)) {
       groups[cat].sort((a, b) => {
         const li = LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level);
@@ -58,9 +67,9 @@ export default function ProgressPage() {
     return groups;
   }, [milestones]);
 
-  // CEFR estimate: weighted average of ratings
+  // CEFR estimate from milestones, or fallback
   const cefrEstimate = useMemo(() => {
-    if (!milestones || milestones.length === 0) return null;
+    if (!milestones) return null;
     const active = (milestones as Milestone[]).filter((m) => m.active);
     if (active.length === 0) return null;
     const avg = active.reduce((sum, m) => sum + m.rating, 0) / active.length;
@@ -76,14 +85,24 @@ export default function ProgressPage() {
     return new Set(recentSessions.map((s) => s.date));
   }, [recentSessions]);
 
-  // Error sessions for heatmap
-  const errorSessions = useMemo(() => {
-    if (!recentSessions) return [];
-    return recentSessions.map((s) => ({
-      date: s.date,
-      errors: s.errors || [],
-    }));
-  }, [recentSessions]);
+  // Correction cards — recent mistakes to review
+  const corrections = useMemo(() => {
+    if (!allCards) return { recent: [], byCategory: {} as Record<string, number>, total: 0 };
+    const correctionCards = (allCards as AnyCard[]).filter(
+      (c) => c.source === "correction",
+    );
+    // Group by errorCategory
+    const byCategory: Record<string, number> = {};
+    for (const c of correctionCards) {
+      const cat = c.errorCategory || "other";
+      byCategory[cat] = (byCategory[cat] ?? 0) + 1;
+    }
+    // Most recent 8 corrections (by creation time)
+    const recent = correctionCards
+      .sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0))
+      .slice(0, 8);
+    return { recent, byCategory, total: correctionCards.length };
+  }, [allCards]);
 
   // Loading
   if (milestones === undefined || recentSessions === undefined) {
@@ -95,7 +114,7 @@ export default function ProgressPage() {
   }
 
   return (
-    <main className="max-w-lg mx-auto pb-20 px-4 py-4 flex flex-col gap-6">
+    <main className="max-w-lg mx-auto pb-20 px-4 py-4 flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
@@ -106,11 +125,13 @@ export default function ProgressPage() {
         </Link>
         <div className="flex-1">
           <h1 className="text-lg font-semibold">Progress</h1>
-          {cefrEstimate && (
-            <p className="text-xs text-white/40">
-              Estimated level: {cefrEstimate}
-            </p>
-          )}
+          <p className="text-xs text-white/40">
+            {cefrEstimate
+              ? `Level: ${cefrEstimate}`
+              : stats && stats.totalSessions > 0
+                ? "Level: A2 (starting)"
+                : "Complete lessons to track progress"}
+          </p>
         </div>
         {stats && (
           <div className="text-right text-xs text-white/40">
@@ -120,8 +141,8 @@ export default function ProgressPage() {
         )}
       </div>
 
-      {/* Streak Calendar */}
-      <div className="bg-card rounded-2xl border border-white/10 p-4">
+      {/* Streak Calendar — compact */}
+      <div className="bg-card rounded-2xl border border-white/10 p-3">
         <StreakCalendar
           sessionDates={sessionDates}
           year={year}
@@ -129,13 +150,44 @@ export default function ProgressPage() {
         />
       </div>
 
-      {/* Error Heat Map */}
-      {errorSessions.some((s) => s.errors.length > 0) && (
-        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
-          <h2 className="text-sm font-medium text-white/60">
-            Error patterns (30 days)
-          </h2>
-          <ErrorHeatMap sessions={errorSessions} />
+      {/* Recent Corrections */}
+      {corrections.total > 0 && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-white/60">
+              Mistakes to learn from
+            </h2>
+            <span className="text-[10px] text-white/30">
+              {corrections.total} cards
+            </span>
+          </div>
+
+          {/* Category breakdown */}
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(corrections.byCategory).map(([cat, count]) => (
+              <span
+                key={cat}
+                className="text-[10px] px-2 py-0.5 rounded-full bg-warn/10 text-warn/70"
+              >
+                {CATEGORY_LABELS[cat] || cat} ({count})
+              </span>
+            ))}
+          </div>
+
+          {/* Recent corrections list */}
+          <div className="space-y-1.5">
+            {corrections.recent.map((card: AnyCard) => (
+              <div
+                key={card._id}
+                className="flex items-start gap-2 text-xs py-1 border-b border-white/5 last:border-0"
+              >
+                <span className="flex-1 text-white/80">{card.it}</span>
+                <span className="text-white/40 text-right max-w-[40%] truncate">
+                  {card.en}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -162,10 +214,10 @@ export default function ProgressPage() {
           </div>
         ))
       ) : (
-        <div className="bg-card rounded-2xl border border-white/10 p-6 text-center">
-          <p className="text-white/50">No milestones yet</p>
+        <div className="bg-card rounded-2xl border border-white/10 p-4 text-center">
+          <p className="text-white/40 text-sm">No skill milestones yet</p>
           <p className="text-xs text-white/30 mt-1">
-            Milestones are synced from the nightly intelligence engine.
+            Milestones update as Marco analyzes your sessions.
           </p>
         </div>
       )}

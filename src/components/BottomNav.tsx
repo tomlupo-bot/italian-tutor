@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, BarChart3, Settings } from "lucide-react";
+import { Home, Zap, BarChart3 } from "lucide-react";
 import { cn } from "../lib/cn";
 
 const items = [
   { href: "/", label: "Home", icon: Home },
   { href: "/practice", label: "Practice", icon: Zap },
   { href: "/progress", label: "Progress", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function BottomNav() {
