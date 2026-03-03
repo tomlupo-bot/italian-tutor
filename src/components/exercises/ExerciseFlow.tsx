@@ -3,6 +3,7 @@
 import { useExerciseSession } from "@/hooks/useExerciseSession";
 import type { Exercise, ExerciseMode } from "@/lib/exerciseTypes";
 import ExerciseRenderer from "./ExerciseRenderer";
+import ExerciseErrorBoundary from "./ExerciseErrorBoundary";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -156,12 +157,13 @@ export default function ExerciseFlow({
       </div>
 
       {/* Exercise component — key forces remount between exercises */}
-      <ExerciseRenderer
-        key={currentExercise._id}
-        exercise={currentExercise}
-        onComplete={submitResult}
-        onSkip={skip}
-      />
+      <ExerciseErrorBoundary key={currentExercise._id} onSkip={skip}>
+        <ExerciseRenderer
+          exercise={currentExercise}
+          onComplete={submitResult}
+          onSkip={skip}
+        />
+      </ExerciseErrorBoundary>
     </div>
   );
 }

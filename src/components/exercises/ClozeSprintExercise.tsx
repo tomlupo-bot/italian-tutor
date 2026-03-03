@@ -16,6 +16,11 @@ export default function ClozeSprintExercise({ content, onComplete }: Props) {
   const [showResult, setShowResult] = useState(false);
   const startTime = useRef(Date.now());
 
+  // Guard: malformed content
+  if (!c?.sentence || !Array.isArray(c?.options)) {
+    return <div className="bg-card rounded-2xl border border-white/10 p-5 text-white/50 text-sm">Exercise data missing</div>;
+  }
+
   const handleSelect = useCallback(
     (idx: number) => {
       if (showResult) return;

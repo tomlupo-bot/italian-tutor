@@ -12,6 +12,12 @@ interface Props {
 
 export default function WordBuilderExercise({ content, onComplete }: Props) {
   const c = content as WordBuilderContent;
+
+  // Guard: malformed content
+  if (!Array.isArray(c?.scrambled_words) || c.scrambled_words.length === 0) {
+    return <div className="bg-card rounded-2xl border border-white/10 p-5 text-white/50 text-sm">Exercise data missing</div>;
+  }
+
   const [placed, setPlaced] = useState<number[]>([]);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);

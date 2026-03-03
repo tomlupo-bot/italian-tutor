@@ -47,6 +47,12 @@ interface Props {
 
 export default function ConversationExercise({ content, onComplete }: Props) {
   const c = content as ConversationContent;
+
+  // Guard: malformed content
+  if (!c?.scenario || !Array.isArray(c?.target_phrases)) {
+    return <div className="bg-card rounded-2xl border border-white/10 p-5 text-white/50 text-sm">Exercise data missing</div>;
+  }
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

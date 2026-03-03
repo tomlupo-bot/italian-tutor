@@ -16,6 +16,12 @@ interface Props {
 
 export default function PatternDrillExercise({ content, onComplete }: Props) {
   const c = content as PatternDrillContent;
+
+  // Guard: malformed content
+  if (!Array.isArray(c?.sentences) || c.sentences.length === 0) {
+    return <div className="bg-card rounded-2xl border border-white/10 p-5 text-white/50 text-sm">Exercise data missing</div>;
+  }
+
   const [currentIdx, setCurrentIdx] = useState(0);
   const [input, setInput] = useState("");
   const [answers, setAnswers] = useState<string[]>([]);

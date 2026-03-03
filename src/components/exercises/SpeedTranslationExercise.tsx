@@ -28,6 +28,11 @@ export default function SpeedTranslationExercise({
   const startTime = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Guard: malformed content
+  if (!Array.isArray(c?.sentences) || c.sentences.length === 0) {
+    return <div className="bg-card rounded-2xl border border-white/10 p-5 text-white/50 text-sm">Exercise data missing</div>;
+  }
+
   const sentence = c.sentences[currentIdx];
   const total = c.sentences.length;
 

@@ -16,6 +16,12 @@ interface Props {
 
 export default function ErrorHuntExercise({ content, onComplete }: Props) {
   const c = content as ErrorHuntContent;
+
+  // Guard: malformed content
+  if (!Array.isArray(c?.sentences) || c.sentences.length === 0) {
+    return <div className="bg-card rounded-2xl border border-white/10 p-5 text-white/50 text-sm">Exercise data missing</div>;
+  }
+
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [corrections, setCorrections] = useState<Map<number, string>>(
     new Map(),
