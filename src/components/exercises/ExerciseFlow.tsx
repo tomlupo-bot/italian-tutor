@@ -155,8 +155,9 @@ export default function ExerciseFlow({
         )}
       </div>
 
-      {/* Exercise component */}
+      {/* Exercise component — key forces remount between exercises */}
       <ExerciseRenderer
+        key={currentExercise._id}
         exercise={currentExercise}
         onComplete={submitResult}
         onSkip={skip}
