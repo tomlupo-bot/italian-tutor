@@ -4,10 +4,20 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getTodayWarsaw } from "@/lib/date";
+import { normalizeContent } from "@/lib/normalizeContent";
 import type {
+  ClozeContent,
+  ErrorHuntContent,
+  ErrorHuntResult,
   Exercise,
   ExerciseMode,
   ExerciseResult,
+  PatternDrillContent,
+  PatternDrillResult,
+  SpeedTranslationContent,
+  SpeedTranslationResult,
+  WordBuilderContent,
+  WordBuilderResult,
 } from "@/lib/exerciseTypes";
 
 export interface SessionState {
@@ -27,6 +37,135 @@ export interface SessionState {
   error: string | null;
 }
 
+interface CorrectionCard {
+  it: string;
+  en: string;
+  example?: string;
+  tag?: string;
+  source: "correction";
+  skillId?: string;
+  errorCategory?: string;
+}
+
+/**
+ * Extracts SRS correction cards from wrong answers across exercise types.
+ * Each wrong answer becomes a card the learner will review via spaced repetition.
+ */
+function extractCorrectionCards(
+  exercises: Exercise[],
+  results: Map<string, ExerciseResult>,
+): CorrectionCard[] {
+  const cards: CorrectionCard[] = [];
+
+  for (const ex of exercises) {
+    const result = results.get(ex._id);
+    if (!result) continue;
+
+    const content = normalizeContent(ex.type, ex.content);
+
+    switch (ex.type) {
+      case "cloze": {
+        const c = content as ClozeContent;
+        const r = result as { selected: number; correct: boolean };
+        if (!r.correct && c.sentence) {
+          // Replace the blank with the correct answer
+          const parts = c.sentence.split("___");
+          const filled = parts.join(c.options[c.correct]);
+          cards.push({
+            it: filled,
+            en: c.hint || c.options[r.selected] + " → " + c.options[c.correct],
+            source: "correction",
+            skillId: ex.skillId,
+            errorCategory: "cloze",
+          });
+        }
+        break;
+      }
+      case "word_builder": {
+        const c = content as WordBuilderContent;
+        const r = result as WordBuilderResult;
+        if (!r.correct && c.target_sentence) {
+          cards.push({
+            it: c.target_sentence,
+            en: c.translation || "Word order practice",
+            source: "correction",
+            skillId: ex.skillId,
+            errorCategory: "word_order",
+          });
+        }
+        break;
+      }
+      case "pattern_drill": {
+        const c = content as PatternDrillContent;
+        const r = result as PatternDrillResult;
+        if (c?.sentences && r?.scores) {
+          r.scores.forEach((correct, i) => {
+            if (!correct && c.sentences[i]) {
+              const s = c.sentences[i];
+              const filled = s.template.replace("___", s.correct);
+              cards.push({
+                it: filled,
+                en: s.hint || c.pattern_name || "Pattern practice",
+                example: s.template,
+                source: "correction",
+                skillId: ex.skillId,
+                errorCategory: "grammar_pattern",
+              });
+            }
+          });
+        }
+        break;
+      }
+      case "speed_translation": {
+        const c = content as SpeedTranslationContent;
+        const r = result as SpeedTranslationResult;
+        if (c?.sentences && r?.scores) {
+          r.scores.forEach((correct, i) => {
+            if (!correct && c.sentences[i]) {
+              const s = c.sentences[i];
+              cards.push({
+                it: s.options[s.correct],
+                en: s.source,
+                source: "correction",
+                skillId: ex.skillId,
+                errorCategory: "translation",
+              });
+            }
+          });
+        }
+        break;
+      }
+      case "error_hunt": {
+        const c = content as ErrorHuntContent;
+        const r = result as ErrorHuntResult;
+        if (c?.sentences && r?.scores) {
+          r.scores.forEach((correct, i) => {
+            if (!correct && c.sentences[i]?.has_error && c.sentences[i].corrected) {
+              const s = c.sentences[i];
+              cards.push({
+                it: s.corrected!,
+                en: s.explanation || "Error correction",
+                example: s.text,
+                source: "correction",
+                skillId: ex.skillId,
+                errorCategory: "error_recognition",
+              });
+            }
+          });
+        }
+        break;
+      }
+      case "conversation": {
+        // Conversation errors are already extracted to sessionErrors and
+        // handled separately — skip here to avoid duplicates.
+        break;
+      }
+    }
+  }
+
+  return cards;
+}
+
 interface UseExerciseSessionOptions {
   exercises: Exercise[];
   mode: ExerciseMode;
@@ -40,6 +179,7 @@ export function useExerciseSession({
 }: UseExerciseSessionOptions) {
   const saveSession = useMutation(api.sessions.save);
   const markComplete = useMutation(api.exercises.markComplete);
+  const bulkAddCards = useMutation(api.cards.bulkAdd);
 
   const startedAt = useRef(Date.now());
   const [current, setCurrent] = useState(0);
@@ -148,6 +288,15 @@ export function useExerciseSession({
             phrasesUsed: [],
             errors: sessionErrors,
           });
+
+          // Extract correction cards from wrong answers and add to SRS deck
+          const correctionCards = extractCorrectionCards(exercises, allResults);
+          if (correctionCards.length > 0) {
+            bulkAddCards({ cards: correctionCards }).catch(() => {
+              // Non-critical — cards can be generated again
+            });
+          }
+
           setError(null);
         } catch (e) {
           setError(e instanceof Error ? e.message : "Failed to save session");
@@ -163,8 +312,10 @@ export function useExerciseSession({
       currentExercise,
       total,
       results,
+      exercises,
       markComplete,
       saveSession,
+      bulkAddCards,
       mode,
       date,
       sessionErrors,

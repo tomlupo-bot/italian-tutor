@@ -127,7 +127,15 @@ export const bulkAdd = mutation({
   },
   handler: async (ctx, args) => {
     const today = warsawToday();
+    let added = 0;
     for (const card of args.cards) {
+      // Deduplicate by Italian text — skip if card already exists
+      const existing = await ctx.db
+        .query("cards")
+        .filter((q) => q.eq(q.field("it"), card.it))
+        .first();
+      if (existing) continue;
+
       await ctx.db.insert("cards", {
         ...card,
         ease: 2.5,
@@ -135,7 +143,9 @@ export const bulkAdd = mutation({
         repetitions: 0,
         nextReview: today,
       });
+      added++;
     }
+    return { added, skipped: args.cards.length - added };
   },
 });
 
