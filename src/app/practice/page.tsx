@@ -65,6 +65,10 @@ export default function PracticePage() {
     includeAll: studyAll,
   });
   const tags = useQuery(api.cards.getTags);
+  const counts = useQuery(api.cards.getCount, {
+    level: selectedLevel,
+    tag: selectedTag,
+  });
   const reviewCard = useMutation(api.cards.review);
 
   const cards = filteredCards ?? [];
@@ -264,6 +268,13 @@ export default function PracticePage() {
             </span>
           )}
         </div>
+      )}
+
+      {/* Card count summary */}
+      {counts && (
+        <p className="text-center text-[11px] text-white/30">
+          {counts.due} due / {counts.total} total
+        </p>
       )}
     </div>
   );

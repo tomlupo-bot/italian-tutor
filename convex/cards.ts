@@ -269,6 +269,40 @@ export const getFiltered = query({
   },
 });
 
+// Get count of cards matching filters (for "X due / Y total" display)
+export const getCount = query({
+  args: {
+    tag: v.optional(v.string()),
+    level: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const today = warsawToday();
+
+    let cards;
+
+    if (args.tag) {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_tag", (q) => q.eq("tag", args.tag!))
+        .collect();
+    } else if (args.level) {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_level", (q) => q.eq("level", args.level!))
+        .collect();
+    } else {
+      cards = await ctx.db.query("cards").collect();
+    }
+
+    if (args.level && args.tag) {
+      cards = cards.filter((c) => c.level === args.level);
+    }
+
+    const due = cards.filter((c) => c.nextReview <= today).length;
+    return { total: cards.length, due };
+  },
+});
+
 // Get all unique tags with their card counts
 export const getTags = query({
   handler: async (ctx) => {
