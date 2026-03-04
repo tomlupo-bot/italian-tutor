@@ -80,6 +80,25 @@ export const getByDateRange = query({
   },
 });
 
+// Count sessions per mode (for mode completion stats)
+export const getModeCounts = query({
+  handler: async (ctx) => {
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_date")
+      .order("desc")
+      .take(500);
+
+    const counts: Record<string, number> = { quick: 0, standard: 0, deep: 0 };
+    for (const s of sessions) {
+      if (s.mode && s.mode in counts) {
+        counts[s.mode]++;
+      }
+    }
+    return counts;
+  },
+});
+
 // Get stats summary (uses indexed queries, Warsaw timezone)
 export const getStats = query({
   handler: async (ctx) => {

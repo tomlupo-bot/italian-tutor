@@ -4,9 +4,7 @@ import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import MilestoneBar from "@/components/MilestoneBar";
-import StreakCalendar from "@/components/StreakCalendar";
-import { getNowWarsaw } from "@/lib/date";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Flame, Loader2, Trophy } from "lucide-react";
 import Link from "next/link";
 
 interface Milestone {
@@ -32,22 +30,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "General",
 };
 
+const MODE_META: { mode: string; label: string; emoji: string; color: string }[] = [
+  { mode: "quick", label: "Bronze", emoji: "🥉", color: "from-amber-700/20 to-amber-800/5 border-amber-600/30" },
+  { mode: "standard", label: "Silver", emoji: "🥈", color: "from-slate-400/20 to-slate-500/5 border-slate-400/30" },
+  { mode: "deep", label: "Gold", emoji: "🥇", color: "from-yellow-500/20 to-yellow-600/5 border-yellow-500/30" },
+];
+
 export default function ProgressPage() {
   const milestones = useQuery(api.milestones.getAll);
   const stats = useQuery(api.sessions.getStats);
   const allCards = useQuery(api.cards.getAll);
-  const { year, month, dateStr: today } = getNowWarsaw();
-
-  // Recent sessions for streak calendar
-  const thirtyDaysAgo = useMemo(() => {
-    const d = new Date(today + "T12:00:00");
-    d.setDate(d.getDate() - 30);
-    return d.toLocaleDateString("sv-SE");
-  }, [today]);
-  const recentSessions = useQuery(api.sessions.getByDateRange, {
-    from: thirtyDaysAgo,
-    to: today,
-  });
+  const modeCounts = useQuery(api.sessions.getModeCounts);
 
   // Group milestones by category
   const groupedMilestones = useMemo(() => {
@@ -80,11 +73,11 @@ export default function ProgressPage() {
     return "A1";
   }, [milestones]);
 
-  // Session dates for streak calendar
-  const sessionDates = useMemo(() => {
-    if (!recentSessions) return new Set<string>();
-    return new Set(recentSessions.map((s) => s.date));
-  }, [recentSessions]);
+  const cefrLabel = cefrEstimate
+    ? cefrEstimate
+    : stats && stats.totalSessions > 0
+      ? "A2"
+      : "—";
 
   // Correction cards — recent mistakes to review
   const corrections = useMemo(() => {
@@ -92,21 +85,24 @@ export default function ProgressPage() {
     const correctionCards = (allCards as AnyCard[]).filter(
       (c) => c.source === "correction",
     );
-    // Group by errorCategory
     const byCategory: Record<string, number> = {};
     for (const c of correctionCards) {
       const cat = c.errorCategory || "other";
       byCategory[cat] = (byCategory[cat] ?? 0) + 1;
     }
-    // Most recent 8 corrections (by creation time)
     const recent = correctionCards
       .sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0))
       .slice(0, 8);
     return { recent, byCategory, total: correctionCards.length };
   }, [allCards]);
 
+  // Total mode completions
+  const totalModeCompletions = modeCounts
+    ? (modeCounts.quick ?? 0) + (modeCounts.standard ?? 0) + (modeCounts.deep ?? 0)
+    : 0;
+
   // Loading
-  if (milestones === undefined || recentSessions === undefined) {
+  if (milestones === undefined || stats === undefined) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <Loader2 size={32} className="text-accent animate-spin" />
@@ -124,32 +120,76 @@ export default function ProgressPage() {
         >
           <ArrowLeft size={20} />
         </Link>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Progress</h1>
-          <p className="text-xs text-white/40">
-            {cefrEstimate
-              ? `Level: ${cefrEstimate}`
-              : stats && stats.totalSessions > 0
-                ? "Level: A2 (starting)"
-                : "Complete lessons to track progress"}
-          </p>
-        </div>
-        {stats && (
-          <div className="text-right text-xs text-white/40">
-            <p>{stats.streak} day streak</p>
-            <p>{stats.totalSessions} sessions</p>
-          </div>
-        )}
+        <h1 className="text-lg font-semibold flex-1">Progress</h1>
       </div>
 
-      {/* Streak Calendar — compact */}
-      <div className="bg-card rounded-2xl border border-white/10 p-3">
-        <StreakCalendar
-          sessionDates={sessionDates}
-          year={year}
-          month={month}
-        />
+      {/* Level + Streak cards */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Level card */}
+        <div className="bg-card rounded-2xl border border-white/10 p-4 flex flex-col items-center gap-1">
+          <span className="text-3xl font-bold text-accent-light">{cefrLabel}</span>
+          <span className="text-[10px] text-white/30 uppercase tracking-wider">CEFR Level</span>
+          {!cefrEstimate && stats && stats.totalSessions > 0 && (
+            <span className="text-[9px] text-white/20">(starting)</span>
+          )}
+        </div>
+
+        {/* Streak card */}
+        <div className="bg-card rounded-2xl border border-white/10 p-4 flex flex-col items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            <Flame size={22} className="text-orange-400" />
+            <span className="text-3xl font-bold">{stats?.streak ?? 0}</span>
+          </div>
+          <span className="text-[10px] text-white/30 uppercase tracking-wider">Day Streak</span>
+          <span className="text-[9px] text-white/20">{stats?.totalSessions ?? 0} sessions total</span>
+        </div>
       </div>
+
+      {/* Mode Stats */}
+      {modeCounts && totalModeCompletions > 0 && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-white/60">Session Stats</h2>
+            <span className="text-[10px] text-white/30">{totalModeCompletions} total</span>
+          </div>
+          <div className="space-y-2">
+            {MODE_META.map(({ mode, label, emoji, color }) => {
+              const count = modeCounts[mode] ?? 0;
+              const pct = totalModeCompletions > 0 ? (count / totalModeCompletions) * 100 : 0;
+              return (
+                <div key={mode} className={`rounded-xl border bg-gradient-to-br ${color} p-3`}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg">{emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{label}</span>
+                        <span className="text-sm text-white/50 tabular-nums">{count}x</span>
+                      </div>
+                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden mt-1.5">
+                        <div
+                          className="h-full bg-white/20 rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Mastered cards */}
+      {stats && stats.masteredCards > 0 && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 flex items-center gap-3">
+          <Trophy size={20} className="text-yellow-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium">{stats.masteredCards} cards mastered</p>
+            <p className="text-[10px] text-white/30">{stats.totalCards} total cards</p>
+          </div>
+        </div>
+      )}
 
       {/* Recent Corrections */}
       {corrections.total > 0 && (
@@ -163,7 +203,6 @@ export default function ProgressPage() {
             </span>
           </div>
 
-          {/* Category breakdown */}
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(corrections.byCategory).map(([cat, count]) => (
               <span
@@ -175,7 +214,6 @@ export default function ProgressPage() {
             ))}
           </div>
 
-          {/* Recent corrections list */}
           <div className="space-y-2">
             {corrections.recent.map((card: AnyCard) => (
               <div

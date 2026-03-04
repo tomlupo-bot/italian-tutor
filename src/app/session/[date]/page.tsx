@@ -23,6 +23,7 @@ export default function SessionPage() {
   );
 
   const allExercises = useQuery(api.exercises.getByDate, { date: dateParam });
+  const modeCounts = useQuery(api.sessions.getModeCounts);
 
   // Count exercises per type (for mode selector)
   const exerciseCounts = useMemo(() => {
@@ -104,6 +105,7 @@ export default function SessionPage() {
           <ModeSelector
             exerciseCounts={exerciseCounts}
             onSelect={setSelectedMode}
+            sessionCounts={modeCounts ?? undefined}
           />
         </div>
       ) : modeExercises.length === 0 ? (
