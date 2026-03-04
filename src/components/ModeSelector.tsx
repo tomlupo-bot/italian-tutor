@@ -10,6 +10,7 @@ interface ModeSelectorProps {
   exerciseCounts: Record<string, number>;
   onSelect: (mode: ExerciseMode) => void;
   suggested?: ExerciseMode;
+  date?: string;
 }
 
 // Local storage for tier completion tracking
@@ -69,17 +70,18 @@ const MODES: {
 export default function ModeSelector({
   exerciseCounts,
   onSelect,
+  date,
 }: ModeSelectorProps) {
   const [scores, setScores] = useState<Record<string, TierScore | null>>({});
-  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
+  const scoreDate = date ?? new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
 
   useEffect(() => {
     setScores({
-      quick: getTierScore(today, "quick"),
-      standard: getTierScore(today, "standard"),
-      deep: getTierScore(today, "deep"),
+      quick: getTierScore(scoreDate, "quick"),
+      standard: getTierScore(scoreDate, "standard"),
+      deep: getTierScore(scoreDate, "deep"),
     });
-  }, [today]);
+  }, [scoreDate]);
 
   const completedCount = Object.values(scores).filter(s => s?.completed).length;
 
