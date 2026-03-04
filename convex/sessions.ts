@@ -126,19 +126,15 @@ export const getStats = query({
       (c) => c.interval >= 21 && c.lastQuality && c.lastQuality >= 3
     ).length;
 
-    // Streak calculation — uses exercises (new) or lessons (legacy)
+    // Streak calculation
     const allExercises = await ctx.db
       .query("exercises")
       .withIndex("by_date")
       .order("desc")
       .take(200);
-    const allLessons = await ctx.db.query("lessons").collect();
 
-    // Dates that had content (exercises or lessons)
-    const contentDates = new Set([
-      ...allExercises.map((e) => e.date),
-      ...allLessons.map((l) => l.date),
-    ]);
+    // Dates that had content
+    const contentDates = new Set(allExercises.map((e) => e.date));
     const sessionDates = new Set(recentSessions.map((s) => s.date));
 
     let streak = 0;
