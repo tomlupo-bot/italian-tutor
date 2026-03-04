@@ -84,6 +84,7 @@ export const add = mutation({
     en: v.string(),
     example: v.optional(v.string()),
     tag: v.optional(v.string()),
+    level: v.optional(v.string()),
     source: v.union(
       v.literal("builtin"),
       v.literal("lesson"),
@@ -114,6 +115,7 @@ export const bulkAdd = mutation({
         en: v.string(),
         example: v.optional(v.string()),
         tag: v.optional(v.string()),
+        level: v.optional(v.string()),
         source: v.union(
           v.literal("builtin"),
           v.literal("lesson"),
