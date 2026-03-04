@@ -30,7 +30,7 @@ export default function CalendarPage() {
   const { year: wYear, month: wMonth, dateStr: todayStr } = getNowWarsaw();
   const [year, setYear] = useState(wYear);
   const [month, setMonth] = useState(wMonth);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(todayStr);
 
   const from = formatDate(year, month, 1);
   const to = formatDate(year, month, new Date(year, month + 1, 0).getDate());
