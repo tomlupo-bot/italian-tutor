@@ -25,8 +25,20 @@ if (typeof window !== "undefined" && window.speechSynthesis) {
   findItalianVoice();
 }
 
+// Track current audio to cancel before playing new
+let currentAudio: HTMLAudioElement | null = null;
+
 function speakItalian(text: string, rate = 0.85) {
   if (typeof window === "undefined") return;
+
+  // Cancel any currently playing audio
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
 
   // Try server-side TTS first (guaranteed Italian voice)
   fetch("/api/tts", {
@@ -41,8 +53,12 @@ function speakItalian(text: string, rate = 0.85) {
     .then((blob) => {
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
+      currentAudio = audio;
       audio.play();
-      audio.onended = () => URL.revokeObjectURL(url);
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        if (currentAudio === audio) currentAudio = null;
+      };
     })
     .catch(() => {
       // Fallback to browser speechSynthesis
@@ -121,7 +137,7 @@ export default function Flashcard({
               {levelBadge}
             </div>
             <div className="flex items-center gap-3 mt-4">
-              <button onClick={handleSpeak} className="p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition" title="Hear pronunciation">
+              <button onClick={handleSpeak} className="p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition" aria-label="Hear pronunciation">
                 <Volume2 size={16} />
               </button>
               <p className="text-white/30 text-sm">Tap to reveal</p>
@@ -131,7 +147,7 @@ export default function Flashcard({
             <p className="text-lg font-medium text-accent-light">{card.en}</p>
             <div className="flex items-center gap-2 mt-3">
               <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
-              <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" title="Hear example">
+              <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" aria-label="Hear example">
                 <Volume2 size={14} />
               </button>
             </div>
@@ -158,11 +174,11 @@ export default function Flashcard({
             <p className="text-xl font-semibold">{card.it}</p>
             <div className="flex items-center gap-2 mt-3">
               <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
-              <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" title="Hear example">
+              <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" aria-label="Hear example">
                 <Volume2 size={14} />
               </button>
             </div>
-            <button onClick={handleSpeak} className="mt-3 p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition" title="Hear word">
+            <button onClick={handleSpeak} className="mt-3 p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition" aria-label="Hear word">
               <Volume2 size={16} />
             </button>
           </div>
@@ -177,7 +193,7 @@ export default function Flashcard({
       <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
         <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
           <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
-            <button onClick={handleSpeak} className="p-5 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition mb-4" title="Listen">
+            <button onClick={handleSpeak} className="p-5 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition mb-4" aria-label="Listen to pronunciation">
               <Volume2 size={32} />
             </button>
             <p className="text-white/40 text-sm">Listen and guess</p>

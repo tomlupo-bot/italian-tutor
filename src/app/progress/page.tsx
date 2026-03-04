@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import MilestoneBar from "@/components/MilestoneBar";
-import { ArrowLeft, Flame, Loader2, Trophy } from "lucide-react";
+import { ArrowLeft, Flame, Loader2, Trophy, TrendingUp } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/cn";
 
 interface Milestone {
   skillId: string;
@@ -41,6 +42,7 @@ export default function ProgressPage() {
   const stats = useQuery(api.sessions.getStats);
   const allCards = useQuery(api.cards.getAll);
   const modeCounts = useQuery(api.sessions.getModeCounts);
+  const recentSessions = useQuery(api.sessions.listRecent, { limit: 200 });
 
   // Group milestones by category
   const groupedMilestones = useMemo(() => {
@@ -100,6 +102,35 @@ export default function ProgressPage() {
   const totalModeCompletions = modeCounts
     ? (modeCounts.quick ?? 0) + (modeCounts.standard ?? 0) + (modeCounts.deep ?? 0)
     : 0;
+
+  // Weekly activity trends (last 8 weeks)
+  const weeklyTrends = useMemo(() => {
+    if (!recentSessions) return [];
+    const now = new Date();
+    const weeks: { label: string; sessions: number; minutes: number }[] = [];
+
+    for (let w = 7; w >= 0; w--) {
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1 - w * 7); // Monday
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
+
+      const startStr = weekStart.toLocaleDateString("sv-SE");
+      const endStr = weekEnd.toLocaleDateString("sv-SE");
+
+      const weekSessions = recentSessions.filter(
+        (s) => s.date >= startStr && s.date <= endStr,
+      );
+
+      const label = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      weeks.push({
+        label,
+        sessions: weekSessions.length,
+        minutes: Math.round(weekSessions.reduce((sum, s) => sum + s.duration, 0) / 60),
+      });
+    }
+    return weeks;
+  }, [recentSessions]);
 
   // Loading
   if (milestones === undefined || stats === undefined) {
@@ -179,6 +210,49 @@ export default function ProgressPage() {
           </div>
         </div>
       )}
+
+      {/* Weekly Trends */}
+      {weeklyTrends.length > 0 && weeklyTrends.some((w) => w.sessions > 0) && (() => {
+        const maxSessions = Math.max(...weeklyTrends.map((w) => w.sessions), 1);
+        const totalWeekMinutes = weeklyTrends.reduce((sum, w) => sum + w.minutes, 0);
+        return (
+          <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={14} className="text-accent-light" />
+                <h2 className="text-sm font-medium text-white/60">Weekly Activity</h2>
+              </div>
+              <span className="text-[10px] text-white/30">{totalWeekMinutes} min total</span>
+            </div>
+            <div className="flex items-end gap-1.5 h-20">
+              {weeklyTrends.map((week, i) => {
+                const height = maxSessions > 0 ? (week.sessions / maxSessions) * 100 : 0;
+                const isCurrentWeek = i === weeklyTrends.length - 1;
+                return (
+                  <div key={week.label} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="w-full flex items-end justify-center" style={{ height: "60px" }}>
+                      <div
+                        className={cn(
+                          "w-full max-w-[24px] rounded-t-md transition-all",
+                          isCurrentWeek ? "bg-accent" : "bg-white/10",
+                          week.sessions === 0 && "bg-white/5 min-h-[2px]",
+                        )}
+                        style={{ height: `${Math.max(height, 3)}%` }}
+                      />
+                    </div>
+                    <span className={cn(
+                      "text-[8px] leading-none",
+                      isCurrentWeek ? "text-accent-light" : "text-white/20",
+                    )}>
+                      {week.label.split(" ")[0]}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Mastered cards */}
       {stats && stats.masteredCards > 0 && (

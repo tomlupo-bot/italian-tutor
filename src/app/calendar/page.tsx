@@ -137,11 +137,24 @@ export default function CalendarPage() {
     <main className="min-h-screen max-w-lg mx-auto pb-20 px-4 py-4 space-y-4">
       {/* Month nav */}
       <div className="flex items-center justify-between">
-        <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/5 transition">
+        <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Previous month">
           <ChevronLeft size={18} className="text-white/60" />
         </button>
-        <h1 className="text-sm font-semibold">{monthName}</h1>
-        <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-white/5 transition">
+        <button
+          onClick={() => {
+            setYear(wYear);
+            setMonth(wMonth);
+            setSelectedDate(todayStr);
+          }}
+          className="text-sm font-semibold hover:text-accent-light transition"
+          aria-label="Go to today"
+        >
+          {monthName}
+          {(year !== wYear || month !== wMonth) && (
+            <span className="ml-1.5 text-[10px] text-accent-light font-normal">today</span>
+          )}
+        </button>
+        <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Next month">
           <ChevronRight size={18} className="text-white/60" />
         </button>
       </div>

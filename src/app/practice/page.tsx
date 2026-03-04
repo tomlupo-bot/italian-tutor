@@ -8,6 +8,7 @@ import Flashcard, { speakItalian } from "../../components/Flashcard";
 import type { CardMode } from "../../components/Flashcard";
 import { cn } from "../../lib/cn";
 import { Loader2, X, ChevronDown } from "lucide-react";
+import ExerciseErrorBoundary from "../../components/exercises/ExerciseErrorBoundary";
 
 const MODES: { key: CardMode; label: string; icon: string }[] = [
   { key: "classic", label: "Classic", icon: "🇮🇹→🇬🇧" },
@@ -426,31 +427,36 @@ export default function PracticePage() {
         )}
       </div>
 
-      <Flashcard
-        card={vocabCard}
-        flipped={flipped}
-        onFlip={() => setFlipped(!flipped)}
-        mode={mode}
-        speechRate={0.85}
-      />
+      <ExerciseErrorBoundary onSkip={() => handleFeedback(1)}>
+        <Flashcard
+          card={vocabCard}
+          flipped={flipped}
+          onFlip={() => setFlipped(!flipped)}
+          mode={mode}
+          speechRate={0.85}
+        />
+      </ExerciseErrorBoundary>
 
       {flipped ? (
         <div className="flex gap-3">
           <button
             onClick={() => handleFeedback(1)}
             className="px-5 py-3 rounded-xl bg-danger/20 border border-danger/30 hover:bg-danger/30 transition text-sm font-medium"
+            aria-label="Again — review soon"
           >
             Again
           </button>
           <button
             onClick={() => handleFeedback(3)}
             className="px-5 py-3 rounded-xl bg-warn/20 border border-warn/30 hover:bg-warn/30 transition text-sm font-medium"
+            aria-label="Good — review later"
           >
             Good
           </button>
           <button
             onClick={() => handleFeedback(5)}
             className="px-5 py-3 rounded-xl bg-success/20 border border-success/30 hover:bg-success/30 transition text-sm font-medium"
+            aria-label="Easy — long interval"
           >
             Easy
           </button>
