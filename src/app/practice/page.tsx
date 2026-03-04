@@ -71,7 +71,28 @@ export default function PracticePage() {
   });
   const reviewCard = useMutation(api.cards.review);
 
-  const cards = filteredCards ?? [];
+  // Offline support: snapshot cards to localStorage, use snapshot when offline
+  const [offlineCards, setOfflineCards] = useState<ConvexCard[] | null>(null);
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+  useEffect(() => {
+    if (filteredCards && filteredCards.length > 0) {
+      try {
+        localStorage.setItem("marco-cards-snapshot", JSON.stringify(filteredCards));
+      } catch { /* quota exceeded — non-critical */ }
+    }
+  }, [filteredCards]);
+
+  useEffect(() => {
+    if (filteredCards === undefined && isOffline) {
+      try {
+        const snapshot = localStorage.getItem("marco-cards-snapshot");
+        if (snapshot) setOfflineCards(JSON.parse(snapshot));
+      } catch { /* corrupted — ignore */ }
+    }
+  }, [filteredCards, isOffline]);
+
+  const cards = filteredCards ?? offlineCards ?? [];
   const currentCard = cards[idx] as ConvexCard | undefined;
 
   // Reset session when filters change
@@ -279,8 +300,8 @@ export default function PracticePage() {
     </div>
   );
 
-  // Loading
-  if (filteredCards === undefined) {
+  // Loading — show spinner only when online and waiting for Convex
+  if (filteredCards === undefined && !isOffline && !offlineCards) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <Loader2 size={32} className="text-accent animate-spin" />
