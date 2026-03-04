@@ -9,7 +9,6 @@ function warsawToday(): string {
 // Save a completed session (idempotent: rejects duplicate date+mode)
 export const save = mutation({
   args: {
-    lessonId: v.optional(v.id("lessons")),
     date: v.string(),
     duration: v.number(),
     type: v.union(

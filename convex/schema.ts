@@ -24,7 +24,6 @@ export default defineSchema({
 
   // ── Sessions (enhanced with exercise tracking) ───────────────────
   sessions: defineTable({
-    lessonId: v.optional(v.id("lessons")), // backcompat with old lesson-based sessions
     date: v.string(),
     duration: v.number(), // seconds
     type: v.union(
@@ -100,51 +99,4 @@ export default defineSchema({
     .index("by_level", ["level"])
     .index("by_category", ["category"]),
 
-  // ── Lessons (legacy — kept for backward compat, removed in Phase 6)
-  lessons: defineTable({
-    date: v.string(),
-    topic: v.string(),
-    question: v.string(),
-    grammarFocus: v.optional(v.string()),
-    targetPhrases: v.array(
-      v.object({
-        it: v.string(),
-        en: v.string(),
-        example: v.optional(v.string()),
-      })
-    ),
-    level: v.string(),
-    type: v.union(
-      v.literal("daily"),
-      v.literal("tutor_prep"),
-      v.literal("grammar"),
-      v.literal("free"),
-      v.literal("weekly_review"),
-      v.literal("weekend")
-    ),
-    weekSummary: v.optional(
-      v.object({
-        topicsCount: v.number(),
-        errorsCount: v.number(),
-        newPhrasesCount: v.number(),
-        sessionsCount: v.number(),
-        totalMinutes: v.number(),
-      })
-    ),
-    resources: v.optional(
-      v.array(
-        v.object({
-          type: v.union(
-            v.literal("podcast"),
-            v.literal("video"),
-            v.literal("article")
-          ),
-          title: v.string(),
-          url: v.string(),
-          description: v.optional(v.string()),
-          level: v.optional(v.string()),
-        })
-      )
-    ),
-  }).index("by_date", ["date"]),
 });

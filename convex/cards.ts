@@ -77,7 +77,7 @@ export const review = mutation({
   },
 });
 
-// Add a new card (from corrections, lessons, or manual)
+// Add a new card (from corrections or manual)
 export const add = mutation({
   args: {
     it: v.string(),
