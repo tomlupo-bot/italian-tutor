@@ -2,17 +2,29 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BottomNav from "../components/BottomNav";
 import ConvexClientProvider from "./ConvexClientProvider";
+import { RegisterSW } from "./RegisterSW";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#0f1117",
 };
 
 export const metadata: Metadata = {
   title: "Italian Tutor — Marco",
   description: "AI-powered Italian language learning",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Marco",
+  },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <BottomNav />
         </ConvexClientProvider>
+        <RegisterSW />
       </body>
     </html>
   );
