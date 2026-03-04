@@ -7,6 +7,7 @@ import MilestoneBar from "@/components/MilestoneBar";
 import { ArrowLeft, Flame, Loader2, Trophy, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { Lock, Unlock } from "lucide-react";
 
 interface Milestone {
   skillId: string;
@@ -105,6 +106,19 @@ export default function ProgressPage() {
       });
     }
     return groups;
+  }, [milestones]);
+
+  // B2 activation meter: how close to unlocking B2 content
+  const b2Progress = useMemo(() => {
+    if (!milestones) return null;
+    const b1Skills = (milestones as Milestone[]).filter(
+      (m) => m.active && m.level === "B1",
+    );
+    if (b1Skills.length === 0) return null;
+    const mastered = b1Skills.filter((m) => m.rating >= 3).length;
+    const threshold = Math.ceil(b1Skills.length * 0.8);
+    const unlocked = mastered >= threshold;
+    return { mastered, total: b1Skills.length, threshold, unlocked };
   }, [milestones]);
 
   // CEFR estimate from milestones, or fallback
@@ -249,6 +263,43 @@ export default function ProgressPage() {
             <p className="text-sm font-medium">{stats.masteredCards} cards mastered</p>
             <p className="text-[10px] text-white/30">{stats.totalCards} total cards</p>
           </div>
+        </div>
+      )}
+
+      {/* B2 Activation Meter */}
+      {b2Progress && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            {b2Progress.unlocked ? (
+              <Unlock size={16} className="text-success" />
+            ) : (
+              <Lock size={16} className="text-warn" />
+            )}
+            <h2 className="text-sm font-medium text-white/60">
+              {b2Progress.unlocked ? "B2 Unlocked!" : "B2 Activation"}
+            </h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-2 bg-white/5 rounded-full">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-700",
+                  b2Progress.unlocked ? "bg-success" : "bg-warn",
+                )}
+                style={{
+                  width: `${Math.min(100, (b2Progress.mastered / b2Progress.threshold) * 100)}%`,
+                }}
+              />
+            </div>
+            <span className="text-xs text-white/40 tabular-nums whitespace-nowrap">
+              {b2Progress.mastered}/{b2Progress.total}
+            </span>
+          </div>
+          <p className="text-[10px] text-white/30">
+            {b2Progress.unlocked
+              ? "B2 content is now available in your exercises"
+              : `${b2Progress.threshold - b2Progress.mastered} more B1 skill${b2Progress.threshold - b2Progress.mastered === 1 ? "" : "s"} at rating 3+ to unlock B2`}
+          </p>
         </div>
       )}
 
