@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BottomNav from "../components/BottomNav";
+import OfflineBanner from "../components/OfflineBanner";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { RegisterSW } from "./RegisterSW";
 
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className="bg-bg text-white min-h-screen">
+        <OfflineBanner />
         <ConvexClientProvider>
           {children}
           <BottomNav />

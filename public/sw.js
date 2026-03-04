@@ -1,7 +1,8 @@
-const CACHE_NAME = "marco-v1";
+const CACHE_NAME = "marco-v2";
+const TTS_CACHE = "marco-tts-v1";
 
 // App shell files to precache
-const PRECACHE_URLS = ["/", "/practice", "/exercises", "/calendar", "/progress"];
+const PRECACHE_URLS = ["/", "/practice", "/exercises", "/calendar", "/progress", "/offline"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -15,7 +16,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key !== CACHE_NAME && key !== TTS_CACHE)
           .map((key) => caches.delete(key))
       )
     )
@@ -30,7 +31,32 @@ self.addEventListener("fetch", (event) => {
   // Skip non-GET and cross-origin requests
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // Skip API routes and Convex — always go to network
+  // TTS audio — cache-first (audio doesn't change for same text)
+  if (url.pathname === "/api/tts") {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(TTS_CACHE).then((cache) => {
+              cache.put(request, clone);
+              // Limit TTS cache to ~200 entries
+              cache.keys().then((keys) => {
+                if (keys.length > 200) {
+                  cache.delete(keys[0]);
+                }
+              });
+            });
+          }
+          return response;
+        }).catch(() => new Response(null, { status: 503 }));
+      })
+    );
+    return;
+  }
+
+  // Skip other API routes and Convex — always go to network
   if (url.pathname.startsWith("/api/") || url.hostname.includes("convex")) {
     return;
   }
@@ -44,7 +70,7 @@ self.addEventListener("fetch", (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match(request).then((r) => r || caches.match("/")))
+        .catch(() => caches.match(request).then((r) => r || caches.match("/offline")))
     );
     return;
   }
