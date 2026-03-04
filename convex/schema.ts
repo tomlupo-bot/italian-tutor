@@ -63,6 +63,7 @@ export default defineSchema({
     en: v.string(),
     example: v.optional(v.string()),
     tag: v.optional(v.string()),
+    level: v.optional(v.string()),
     source: v.union(
       v.literal("builtin"),
       v.literal("lesson"),
@@ -81,7 +82,8 @@ export default defineSchema({
     errorCategory: v.optional(v.string()), // grammar/vocab/preposition/construction
   })
     .index("by_next_review", ["nextReview"])
-    .index("by_tag", ["tag"]),
+    .index("by_tag", ["tag"])
+    .index("by_level", ["level"]),
 
   // ── Milestones (read replica from quark.db) ──────────────────────
   milestones: defineTable({
