@@ -45,6 +45,49 @@ export const getDateSummaries = query({
   },
 });
 
+// Get random exercises for practice (pulls from existing batches)
+// Prioritizes uncompleted, then completed for replay
+export const getForPractice = query({
+  args: {
+    limit: v.optional(v.number()),
+    types: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 5;
+    const allowedTypes = args.types ? new Set(args.types) : null;
+
+    // Get recent exercises (last 200)
+    const all = await ctx.db
+      .query("exercises")
+      .withIndex("by_date")
+      .order("desc")
+      .take(200);
+
+    // Filter by type if specified, exclude conversation/reflection (interactive)
+    const skip = new Set(["conversation", "reflection", "srs"]);
+    const filtered = all.filter(
+      (ex) => !skip.has(ex.type) && (!allowedTypes || allowedTypes.has(ex.type)),
+    );
+
+    // Prioritize uncompleted, then shuffle completed for replay
+    const uncompleted = filtered.filter((ex) => !ex.completed);
+    const completed = filtered.filter((ex) => ex.completed);
+
+    // Simple shuffle using random sort
+    const shuffleArray = <T>(arr: T[]): T[] => {
+      const shuffled = [...arr];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    const pool = [...shuffleArray(uncompleted), ...shuffleArray(completed)];
+    return pool.slice(0, limit);
+  },
+});
+
 // Mark an exercise as completed with result
 export const markComplete = mutation({
   args: {

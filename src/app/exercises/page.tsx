@@ -9,13 +9,22 @@ import type { Exercise, ExerciseResult } from "@/lib/exerciseTypes";
 import { Loader2, RefreshCw, Target, Shuffle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-type PracticeMode = "errors" | "random";
+type PracticeMode = "errors" | "random" | "typed";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyCard = Record<string, any>;
 
+const DRILL_TYPES: { type: string; label: string; emoji: string }[] = [
+  { type: "cloze", label: "Fill-in-blank", emoji: "📝" },
+  { type: "word_builder", label: "Word builder", emoji: "🧩" },
+  { type: "pattern_drill", label: "Pattern drill", emoji: "🔄" },
+  { type: "speed_translation", label: "Translation", emoji: "⚡" },
+  { type: "error_hunt", label: "Error hunt", emoji: "🔍" },
+];
+
 export default function ExercisesPage() {
   const [mode, setMode] = useState<PracticeMode | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [current, setCurrent] = useState(0);
   const [results, setResults] = useState<Map<string, ExerciseResult>>(new Map());
@@ -24,6 +33,10 @@ export default function ExercisesPage() {
   const [done, setDone] = useState(false);
 
   const allCards = useQuery(api.cards.getAll);
+  const practiceExercises = useQuery(
+    api.exercises.getForPractice,
+    selectedType ? { limit: 5, types: [selectedType] } : { limit: 5 },
+  );
   const bulkAddCards = useMutation(api.cards.bulkAdd);
 
   // Recent correction cards for error-based practice
@@ -35,55 +48,56 @@ export default function ExercisesPage() {
       .slice(0, 10);
   }, [allCards]);
 
-  const generateExercises = useCallback(
-    async (selectedMode: PracticeMode) => {
-      setLoading(true);
-      setError(null);
-      setMode(selectedMode);
+  const startPractice = useCallback(
+    async (selectedMode: PracticeMode, typeFilter?: string) => {
       setCurrent(0);
       setResults(new Map());
       setDone(false);
+      setError(null);
+      setMode(selectedMode);
 
-      try {
-        const body: {
-          count: number;
-          level: string;
-          errors?: { it: string; en: string; errorCategory?: string; example?: string }[];
-          types?: string[];
-        } = {
-          count: 5,
-          level: "A2",
-        };
-
-        if (selectedMode === "errors" && recentErrors.length > 0) {
-          body.errors = recentErrors.map((c) => ({
-            it: c.it,
-            en: c.en,
-            errorCategory: c.errorCategory,
-            example: c.example,
-          }));
-          body.types = ["cloze", "pattern_drill", "speed_translation"];
+      if (selectedMode === "random" || selectedMode === "typed") {
+        // Use existing exercises from Convex — instant, no API call
+        if (typeFilter) setSelectedType(typeFilter);
+        // Need to wait for practiceExercises to update with new type filter
+        // For typed mode, we set the type and the query will reactively update
+        if (practiceExercises && practiceExercises.length > 0) {
+          setExercises(practiceExercises as Exercise[]);
         } else {
-          body.types = ["cloze", "pattern_drill", "speed_translation"];
+          setError("No exercises available for this type. Try another!");
         }
+      } else {
+        // Error Drills — generate with OpenAI
+        setLoading(true);
+        try {
+          const res = await fetch("/api/generate-practice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              count: 5,
+              level: "A2",
+              errors: recentErrors.map((c) => ({
+                it: c.it,
+                en: c.en,
+                errorCategory: c.errorCategory,
+                example: c.example,
+              })),
+              types: ["cloze", "pattern_drill", "speed_translation"],
+            }),
+          });
 
-        const res = await fetch("/api/generate-practice", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-        if (!res.ok) throw new Error("Failed to generate exercises");
-
-        const { exercises: generated } = await res.json();
-        setExercises(generated);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to generate");
-      } finally {
-        setLoading(false);
+          if (!res.ok) throw new Error("Failed to generate exercises");
+          const { exercises: generated } = await res.json();
+          setExercises(generated);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Failed to generate");
+          setMode(null);
+        } finally {
+          setLoading(false);
+        }
       }
     },
-    [recentErrors],
+    [recentErrors, practiceExercises],
   );
 
   const currentExercise = exercises[current] ?? null;
@@ -101,7 +115,7 @@ export default function ExercisesPage() {
 
       if (current + 1 >= exercises.length) {
         setDone(true);
-        // Create correction cards from wrong answers (same logic as session)
+        // Create correction cards from wrong answers
         const wrongCards: { it: string; en: string; source: "correction"; errorCategory: string }[] = [];
         const allResults = new Map(results);
         allResults.set(currentExercise._id, result);
@@ -127,7 +141,7 @@ export default function ExercisesPage() {
             const scores = (r as { scores: boolean[] }).scores;
             scores.forEach((s, i) => {
               if (!s) {
-                const content = ex.content as { sentences?: { source?: string; options?: string[]; correct?: number; template?: string; correct_answer?: string }[] };
+                const content = ex.content as { sentences?: { source?: string; options?: string[]; correct?: number }[] };
                 const sentence = content.sentences?.[i];
                 if (sentence?.options && typeof sentence.correct === "number") {
                   wrongCards.push({
@@ -170,19 +184,21 @@ export default function ExercisesPage() {
     }).length;
   }, [results]);
 
+  const availableCount = practiceExercises?.length ?? 0;
+
   // ── Mode selection screen ───────────────────────────────
   if (!mode || (exercises.length === 0 && !loading)) {
     return (
       <main className="min-h-screen max-w-lg mx-auto pb-20 px-4 py-6 space-y-4">
-        <h1 className="text-lg font-semibold text-center">Exercises</h1>
+        <h1 className="text-lg font-semibold text-center">Drills</h1>
         <p className="text-xs text-white/30 text-center">
-          AI-generated practice — infinite drills on demand
+          Practice exercises on demand
         </p>
 
         <div className="space-y-3 pt-2">
           {/* Error drills */}
           <button
-            onClick={() => generateExercises("errors")}
+            onClick={() => startPractice("errors")}
             disabled={recentErrors.length === 0}
             className={cn(
               "w-full text-left rounded-2xl border p-4 transition active:scale-[0.98]",
@@ -202,30 +218,61 @@ export default function ExercisesPage() {
                   )}
                 </div>
                 <p className="text-xs text-white/40 mt-0.5">
-                  Practice exercises targeting your recent mistakes
+                  AI generates exercises targeting your recent mistakes
                 </p>
               </div>
             </div>
           </button>
 
-          {/* Random practice */}
+          {/* Random practice — from existing exercises */}
           <button
-            onClick={() => generateExercises("random")}
+            onClick={() => startPractice("random")}
+            disabled={availableCount === 0}
             className={cn(
               "w-full text-left rounded-2xl border p-4 transition active:scale-[0.98]",
               "bg-gradient-to-br from-accent/15 to-accent/5 border-accent/20",
+              availableCount === 0 && "opacity-40 cursor-not-allowed",
             )}
           >
             <div className="flex items-center gap-3">
               <Shuffle size={24} className="text-accent-light flex-shrink-0" />
               <div className="flex-1">
-                <span className="font-semibold">Random Practice</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Random Mix</span>
+                  {availableCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/20 text-accent-light">
+                      {availableCount} ready
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-white/40 mt-0.5">
-                  Fresh exercises at your level — cloze, pattern drills, translation
+                  Replay exercises from your lesson batches
                 </p>
               </div>
             </div>
           </button>
+        </div>
+
+        {/* By exercise type */}
+        <div className="space-y-2 pt-2">
+          <h2 className="text-xs font-medium text-white/30 uppercase tracking-wider px-1">
+            By Type
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {DRILL_TYPES.map(({ type, label, emoji }) => (
+              <button
+                key={type}
+                onClick={() => {
+                  setSelectedType(type);
+                  startPractice("typed", type);
+                }}
+                className="text-left rounded-xl border border-white/10 bg-card p-3 transition active:scale-[0.98] hover:border-white/20"
+              >
+                <span className="text-lg">{emoji}</span>
+                <p className="text-xs font-medium mt-1">{label}</p>
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && (
@@ -266,7 +313,7 @@ export default function ExercisesPage() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => generateExercises(mode)}
+            onClick={() => startPractice(mode)}
             className="px-5 py-3 bg-accent rounded-xl text-sm font-medium hover:bg-accent/80 transition flex items-center gap-2"
           >
             <RefreshCw size={16} />
