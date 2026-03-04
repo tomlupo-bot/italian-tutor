@@ -220,3 +220,67 @@ export const migrateFromLocalStorage = mutation({
     return { migrated, skipped };
   },
 });
+
+// Get cards with optional tag/level filters
+export const getFiltered = query({
+  args: {
+    limit: v.optional(v.number()),
+    tag: v.optional(v.string()),
+    level: v.optional(v.string()),
+    includeAll: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const today = warsawToday();
+    const limit = args.limit ?? 50;
+
+    let cards;
+
+    if (args.tag) {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_tag", (q) => q.eq("tag", args.tag!))
+        .collect();
+    } else if (args.level) {
+      cards = await ctx.db
+        .query("cards")
+        .withIndex("by_level", (q) => q.eq("level", args.level!))
+        .collect();
+    } else if (!args.includeAll) {
+      return await ctx.db
+        .query("cards")
+        .withIndex("by_next_review", (q) => q.lte("nextReview", today))
+        .take(limit);
+    } else {
+      cards = await ctx.db.query("cards").collect();
+    }
+
+    let filtered = cards;
+
+    if (args.level && args.tag) {
+      filtered = filtered.filter((c) => c.level === args.level);
+    }
+
+    if (!args.includeAll) {
+      filtered = filtered.filter((c) => c.nextReview <= today);
+    }
+
+    filtered.sort(() => Math.random() - 0.5);
+    return filtered.slice(0, limit);
+  },
+});
+
+// Get all unique tags with their card counts
+export const getTags = query({
+  handler: async (ctx) => {
+    const cards = await ctx.db.query("cards").collect();
+    const tagCounts: Record<string, number> = {};
+    for (const card of cards) {
+      if (card.tag) {
+        tagCounts[card.tag] = (tagCounts[card.tag] || 0) + 1;
+      }
+    }
+    return Object.entries(tagCounts)
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count);
+  },
+});
