@@ -72,7 +72,15 @@ Return a JSON array of exercise objects. Only return the JSON array, no other te
 
     const raw = completion.choices[0]?.message?.content || "[]";
     const jsonStr = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const exercises = JSON.parse(jsonStr);
+    let exercises;
+    try {
+      exercises = JSON.parse(jsonStr);
+    } catch {
+      return NextResponse.json({ error: "Failed to parse generated exercises" }, { status: 502 });
+    }
+    if (!Array.isArray(exercises)) {
+      return NextResponse.json({ error: "Invalid exercise format" }, { status: 502 });
+    }
 
     // Add order and metadata to each exercise
     const enriched = exercises.map((ex: { type: string; content: unknown }, i: number) => ({

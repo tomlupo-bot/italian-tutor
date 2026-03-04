@@ -56,8 +56,8 @@ export const review = mutation({
       repetitions += 1;
     }
 
-    // Update ease factor
-    ease = Math.max(1.3, ease + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
+    // Update ease factor (SM-2: floor 1.3, cap 3.0)
+    ease = Math.min(3.0, Math.max(1.3, ease + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))));
 
     const today = warsawToday();
     const nextDate = new Date(today + "T12:00:00");

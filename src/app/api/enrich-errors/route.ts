@@ -56,7 +56,13 @@ Only return the JSON array, no other text.`;
     const raw = completion.choices[0]?.message?.content || "[]";
     // Extract JSON from response (handle markdown code blocks)
     const jsonStr = raw.replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-    const enrichments: { index: number; explanation: string }[] = JSON.parse(jsonStr);
+    let enrichments: { index: number; explanation: string }[];
+    try {
+      enrichments = JSON.parse(jsonStr);
+    } catch {
+      // LLM returned malformed JSON — return original cards unchanged
+      return NextResponse.json({ enriched: batch.map((c) => ({ it: c.it, en: c.en })) });
+    }
 
     const enriched: EnrichedCard[] = batch.map((card, i) => {
       const match = enrichments.find((e) => e.index === i + 1);

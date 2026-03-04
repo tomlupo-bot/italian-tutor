@@ -102,7 +102,7 @@ function extractCorrectionCards(
           r.scores.forEach((correct, i) => {
             if (!correct && c.sentences[i]) {
               const s = c.sentences[i];
-              const filled = s.template.replace("___", s.correct);
+              const filled = s.template ? s.template.replace("___", s.correct) : s.correct;
               cards.push({
                 it: filled,
                 en: s.hint || c.pattern_name || "Pattern practice",
@@ -281,8 +281,8 @@ export function useExerciseSession({
 
       // Mark exercise complete in Convex (fire and forget)
       markComplete({
-        exerciseId: currentExercise._id as never,
-        result: result as unknown,
+        exerciseId: currentExercise._id as Parameters<typeof markComplete>[0]["exerciseId"],
+        result: result as Parameters<typeof markComplete>[0]["result"],
       }).catch(() => {
         // Non-critical — session save captures everything
       });

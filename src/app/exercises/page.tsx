@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import ExerciseRenderer from "@/components/exercises/ExerciseRenderer";
@@ -59,10 +59,13 @@ export default function ExercisesPage() {
       if (selectedMode === "random" || selectedMode === "typed") {
         // Use existing exercises from Convex — instant, no API call
         if (typeFilter) setSelectedType(typeFilter);
-        // Need to wait for practiceExercises to update with new type filter
-        // For typed mode, we set the type and the query will reactively update
-        if (practiceExercises && practiceExercises.length > 0) {
+        // When changing type filter, practiceExercises may not reflect
+        // the new filter yet — only use current data if no filter change
+        if (!typeFilter && practiceExercises && practiceExercises.length > 0) {
           setExercises(practiceExercises as Exercise[]);
+        } else if (typeFilter) {
+          // Let the reactive query update — exercises will be set via effect
+          setLoading(true);
         } else {
           setError("No exercises available for this type. Try another!");
         }
@@ -100,6 +103,26 @@ export default function ExercisesPage() {
     [recentErrors, practiceExercises],
   );
 
+  // Handle typed mode: when practiceExercises reactively updates after type filter change
+  const prevPracticeRef = useRef(practiceExercises);
+  if (
+    loading &&
+    mode === "typed" &&
+    practiceExercises &&
+    practiceExercises !== prevPracticeRef.current
+  ) {
+    prevPracticeRef.current = practiceExercises;
+    if (practiceExercises.length > 0) {
+      setExercises(practiceExercises as Exercise[]);
+      setLoading(false);
+      setError(null);
+    } else {
+      setError("No exercises available for this type. Try another!");
+      setLoading(false);
+      setMode(null);
+    }
+  }
+
   const currentExercise = exercises[current] ?? null;
   const progress = exercises.length > 0 ? (current / exercises.length) * 100 : 0;
 
@@ -125,13 +148,16 @@ export default function ExercisesPage() {
           if (!ex) continue;
 
           if ("correct" in r && !(r as { correct: boolean }).correct) {
-            const content = ex.content as { sentence?: string; options?: string[]; correct?: number };
-            if (content.sentence && content.options && typeof content.correct === "number") {
-              const parts = (content.sentence as string).split("___");
-              const filled = parts.join(content.options[content.correct]);
+            const content = ex.content as unknown as Record<string, unknown>;
+            const sentence = typeof content.sentence === "string" ? content.sentence : null;
+            const options = Array.isArray(content.options) ? content.options as string[] : null;
+            const correctIdx = typeof content.correct === "number" ? content.correct : null;
+            if (sentence && options && correctIdx !== null && options[correctIdx]) {
+              const parts = sentence.split("___");
+              const filled = parts.join(options[correctIdx]);
               wrongCards.push({
                 it: filled,
-                en: `Practice: ${content.options[content.correct]}`,
+                en: `Practice: ${options[correctIdx]}`,
                 source: "correction",
                 errorCategory: ex.type,
               });
@@ -139,20 +165,25 @@ export default function ExercisesPage() {
           }
           if ("scores" in r) {
             const scores = (r as { scores: boolean[] }).scores;
-            scores.forEach((s, i) => {
-              if (!s) {
-                const content = ex.content as { sentences?: { source?: string; options?: string[]; correct?: number }[] };
-                const sentence = content.sentences?.[i];
-                if (sentence?.options && typeof sentence.correct === "number") {
-                  wrongCards.push({
-                    it: sentence.options[sentence.correct],
-                    en: sentence.source || "Practice exercise",
-                    source: "correction",
-                    errorCategory: ex.type,
-                  });
+            if (Array.isArray(scores)) {
+              scores.forEach((s, i) => {
+                if (!s) {
+                  const content = ex.content as unknown as Record<string, unknown>;
+                  const sentences = Array.isArray(content.sentences) ? content.sentences : [];
+                  const sentence = sentences[i] as Record<string, unknown> | undefined;
+                  const options = sentence && Array.isArray(sentence.options) ? sentence.options as string[] : null;
+                  const correctIdx = sentence && typeof sentence.correct === "number" ? sentence.correct : null;
+                  if (options && correctIdx !== null && options[correctIdx]) {
+                    wrongCards.push({
+                      it: options[correctIdx],
+                      en: (typeof sentence?.source === "string" ? sentence.source : null) || "Practice exercise",
+                      source: "correction",
+                      errorCategory: ex.type,
+                    });
+                  }
                 }
-              }
-            });
+              });
+            }
           }
         }
 

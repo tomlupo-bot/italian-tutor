@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
     if (!text?.trim()) {
       return NextResponse.json({ error: "No text provided" }, { status: 400 });
     }
+    if (text.length > 1000) {
+      return NextResponse.json({ error: "Text too long (max 1000 chars)" }, { status: 400 });
+    }
 
     // Strip JSON blocks from text
     const clean = text.replace(/```json[\s\S]*?```/g, "").trim();
