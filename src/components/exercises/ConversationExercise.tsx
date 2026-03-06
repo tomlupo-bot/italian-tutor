@@ -51,10 +51,15 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   const ttsRequestIdRef = useRef(0);
   const diagSessionIdRef = useRef("");
   const lastResultLogAtRef = useRef(0);
+  const sttLastResultAtRef = useRef(0);
+  const sttWatchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sttSupported =
     typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  const isIOSWebKit =
+    typeof window !== "undefined" &&
+    /iPhone|iPad|iPod/i.test(window.navigator.userAgent);
 
   const stopAudioPlayback = useCallback(() => {
     if (audioRef.current) {
@@ -172,6 +177,27 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }
   }, []);
 
+  const clearWatchdogTimer = useCallback(() => {
+    if (sttWatchdogTimerRef.current) {
+      clearTimeout(sttWatchdogTimerRef.current);
+      sttWatchdogTimerRef.current = null;
+    }
+  }, []);
+
+  const armWatchdogTimer = useCallback(() => {
+    clearWatchdogTimer();
+    sttWatchdogTimerRef.current = setTimeout(() => {
+      if (!recognitionWantedRef.current || loading || !recognitionRef.current) return;
+      if (Date.now() - sttLastResultAtRef.current < 4500) return;
+      logDiagnostic("stt_watchdog_restart");
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // ignore
+      }
+    }, 6500);
+  }, [clearWatchdogTimer, loading, logDiagnostic]);
+
   const createRecognition = useCallback(() => {
     if (!sttSupported) return null;
 
@@ -183,8 +209,17 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     const recognition: any = new SR();
     recognition.lang = "it-IT";
     recognition.interimResults = true;
-    recognition.continuous = true;
+    recognition.continuous = !isIOSWebKit;
     recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      sttLastResultAtRef.current = Date.now();
+      logDiagnostic("stt_onstart", { continuous: recognition.continuous });
+      armWatchdogTimer();
+    };
+    recognition.onspeechstart = () => logDiagnostic("stt_onspeechstart");
+    recognition.onspeechend = () => logDiagnostic("stt_onspeechend");
+    recognition.onaudiostart = () => logDiagnostic("stt_onaudiostart");
+    recognition.onaudioend = () => logDiagnostic("stt_onaudioend");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
@@ -204,6 +239,8 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       const merged = `${committedTranscriptRef.current} ${interimText}`.trim();
       setTranscript(merged);
       const now = Date.now();
+      sttLastResultAtRef.current = now;
+      armWatchdogTimer();
       if (finalText || now - lastResultLogAtRef.current > 2000) {
         lastResultLogAtRef.current = now;
         logDiagnostic("stt_result", {
@@ -228,6 +265,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       const fatalErrors = new Set(["not-allowed", "service-not-allowed", "audio-capture"]);
       if (fatalErrors.has(event?.error)) {
         recognitionWantedRef.current = false;
+        clearWatchdogTimer();
         return;
       }
       clearRecognitionRestartTimer();
@@ -251,6 +289,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     };
 
     recognition.onend = () => {
+      clearWatchdogTimer();
       logDiagnostic("stt_end", {
         wanted: recognitionWantedRef.current,
       });
@@ -280,13 +319,22 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     };
 
     return recognition;
-  }, [clearRecognitionRestartTimer, loading, logDiagnostic, sttSupported]);
+  }, [
+    armWatchdogTimer,
+    clearRecognitionRestartTimer,
+    clearWatchdogTimer,
+    isIOSWebKit,
+    loading,
+    logDiagnostic,
+    sttSupported,
+  ]);
 
   const stopRecording = useCallback(() => {
     logDiagnostic("stt_stop_requested", {
       has_ref: Boolean(recognitionRef.current),
     });
     recognitionWantedRef.current = false;
+    clearWatchdogTimer();
     clearRecognitionRestartTimer();
     if (recognitionRef.current) {
       try {
@@ -297,7 +345,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }
     recognitionRef.current = null;
     setIsRecording(false);
-  }, [clearRecognitionRestartTimer, logDiagnostic]);
+  }, [clearRecognitionRestartTimer, clearWatchdogTimer, logDiagnostic]);
 
   const startRecording = useCallback(() => {
     if (!sttSupported || loading) {
@@ -313,7 +361,9 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }
     recognitionWantedRef.current = true;
     committedTranscriptRef.current = "";
+    sttLastResultAtRef.current = Date.now();
     setTranscript("");
+    clearWatchdogTimer();
     clearRecognitionRestartTimer();
     logDiagnostic("stt_start_requested");
 
@@ -358,6 +408,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   }, [
     audioPending,
     clearRecognitionRestartTimer,
+    clearWatchdogTimer,
     createRecognition,
     loading,
     logDiagnostic,
@@ -410,6 +461,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   useEffect(() => {
     return () => {
       recognitionWantedRef.current = false;
+      clearWatchdogTimer();
       clearRecognitionRestartTimer();
       if (recognitionRef.current) {
         try {
@@ -421,7 +473,12 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       stopAudioPlayback();
       logDiagnostic("diag_unmount");
     };
-  }, [clearRecognitionRestartTimer, logDiagnostic, stopAudioPlayback]);
+  }, [
+    clearRecognitionRestartTimer,
+    clearWatchdogTimer,
+    logDiagnostic,
+    stopAudioPlayback,
+  ]);
 
   // Open with Marco's greeting
   useEffect(() => {
