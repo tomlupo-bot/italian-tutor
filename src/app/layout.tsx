@@ -17,15 +17,15 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Italian Tutor — Marco",
   description: "AI-powered Italian language learning",
-  manifest: "/manifest.json",
+  manifest: "/tutor/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Marco",
   },
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/apple-touch-icon.png",
+    icon: "/tutor/icons/icon-192.png",
+    apple: "/tutor/icons/apple-touch-icon.png",
   },
 };
 

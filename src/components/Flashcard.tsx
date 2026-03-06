@@ -41,7 +41,7 @@ function speakItalian(text: string, rate = 0.85) {
   }
 
   // Try server-side TTS first (guaranteed Italian voice)
-  fetch("/api/tts", {
+  fetch("/tutor/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),

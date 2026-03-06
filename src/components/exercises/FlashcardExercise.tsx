@@ -7,7 +7,7 @@ import { Volume2 } from "lucide-react";
 
 async function playTTS(text: string) {
   try {
-    const res = await fetch("/api/tts", {
+    const res = await fetch("/tutor/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
