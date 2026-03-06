@@ -261,7 +261,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   };
 
   return (
-    <div className="flex flex-col h-[70vh]">
+    <div className="flex flex-col h-[calc(100vh-8rem)] max-h-[70vh]">
       {/* Scenario header */}
       <div className="px-4 py-3 bg-gradient-to-r from-teal-900/30 to-teal-800/10 border-b border-teal-500/10 rounded-t-2xl">
         <p className="text-sm font-medium text-teal-300">{c.scenario}</p>
