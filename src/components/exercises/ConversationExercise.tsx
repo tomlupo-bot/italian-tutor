@@ -13,7 +13,7 @@ import { Check, Mic, Send, Volume2 } from "lucide-react";
 
 async function playTTS(text: string) {
   try {
-    const res = await fetch("/api/tts", {
+    const res = await fetch("/tutor/api/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -115,7 +115,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       checkPhrasesUsed(userMsg);
 
       try {
-        const res = await fetch("/api/chat", {
+        const res = await fetch("/tutor/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -261,7 +261,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   };
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 w-full max-w-lg mx-auto">
+    <div className="flex flex-col min-h-0 flex-1 w-full max-w-[430px] mx-auto rounded-2xl border border-white/10 bg-card/20 overflow-hidden">
       {/* Scenario header */}
       <div className="px-4 py-3 bg-gradient-to-r from-teal-900/30 to-teal-800/10 border-b border-teal-500/10 rounded-t-2xl">
         <p className="text-sm font-medium text-teal-300">{c.scenario}</p>
@@ -297,7 +297,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
           <div key={i}>
             <div
               className={cn(
-                "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                "max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed break-words",
                 msg.role === "assistant"
                   ? "bg-teal-900/30 border border-teal-500/20 self-start"
                   : "bg-accent/20 border border-accent/20 self-end ml-auto",
@@ -319,7 +319,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
               <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
             {msg.correction && (
-              <div className="max-w-[85%] ml-auto mt-1 bg-amber-900/20 border border-amber-500/20 rounded-xl px-3 py-2 text-xs">
+              <div className="max-w-[85%] ml-auto mt-1 bg-amber-900/20 border border-amber-500/20 rounded-xl px-3 py-2 text-xs break-words">
                 <p className="text-danger">
                   {msg.correction.original}
                 </p>
