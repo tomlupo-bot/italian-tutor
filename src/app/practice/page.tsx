@@ -7,8 +7,9 @@ import type { VocabCard } from "../../data/vocab";
 import Flashcard, { speakItalian } from "../../components/Flashcard";
 import type { CardMode } from "../../components/Flashcard";
 import { cn } from "../../lib/cn";
-import { Loader2, X, ChevronDown } from "lucide-react";
+import { Loader2, X, ChevronDown, ArrowLeft } from "lucide-react";
 import ExerciseErrorBoundary from "../../components/exercises/ExerciseErrorBoundary";
+import Link from "next/link";
 
 const MODES: { key: CardMode; label: string; icon: string }[] = [
   { key: "classic", label: "Classic", icon: "🇮🇹→🇬🇧" },
@@ -46,6 +47,8 @@ export default function PracticePage() {
   const [selectedTag, setSelectedTag] = useState<string | undefined>(undefined);
   const [studyAll, setStudyAll] = useState(false);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [embeddedMode, setEmbeddedMode] = useState(false);
+  const [sessionDate, setSessionDate] = useState<string | undefined>(undefined);
 
   // Session state
   const [idx, setIdx] = useState(0);
@@ -78,8 +81,13 @@ export default function PracticePage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = new URLSearchParams(window.location.search).get("tag");
-    if (raw) setSelectedTag(raw);
+    const search = new URLSearchParams(window.location.search);
+    const rawTag = search.get("tag");
+    if (rawTag) setSelectedTag(rawTag);
+    const embedded = search.get("embedded") === "1";
+    setEmbeddedMode(embedded);
+    const date = search.get("date");
+    if (date) setSessionDate(date);
   }, []);
 
   useEffect(() => {
@@ -320,12 +328,14 @@ export default function PracticePage() {
   if (cards.length === 0) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto pb-20 px-4 gap-4">
-        <div className="w-full">{filterBar}</div>
+        {!embeddedMode && <div className="w-full">{filterBar}</div>}
         <div className="text-5xl mt-4">
           {hasActiveFilters || studyAll ? "🔍" : "🎉"}
         </div>
         <h2 className="text-xl font-semibold">
-          {hasActiveFilters || studyAll
+          {embeddedMode
+            ? "No Bronze cards for this topic"
+            : hasActiveFilters || studyAll
             ? "No cards match"
             : "All caught up!"}
         </h2>
@@ -342,6 +352,14 @@ export default function PracticePage() {
             <br />
             Complete a lesson to generate new cards.
           </p>
+        )}
+        {embeddedMode && sessionDate && (
+          <Link
+            href={`/session/${sessionDate}`}
+            className="mt-2 px-4 py-2 rounded-xl border border-white/10 text-sm text-white/70 hover:bg-white/5 transition"
+          >
+            Back to Session
+          </Link>
         )}
       </main>
     );
@@ -364,6 +382,14 @@ export default function PracticePage() {
             <p className="text-xs text-white/40">Avg Quality</p>
           </div>
         </div>
+        {embeddedMode && sessionDate && (
+          <Link
+            href={`/session/${sessionDate}`}
+            className="px-4 py-2 rounded-xl border border-white/10 text-sm text-white/70 hover:bg-white/5 transition"
+          >
+            Back to Session
+          </Link>
+        )}
       </main>
     );
   }
@@ -373,8 +399,23 @@ export default function PracticePage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto pb-20 px-4 gap-4">
+      {embeddedMode && (
+        <div className="w-full flex items-center justify-between mb-1">
+          <Link
+            href={sessionDate ? `/session/${sessionDate}` : "/"}
+            className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div className="text-center">
+            <p className="text-xs text-white/30">{sessionDate ?? "today"}</p>
+            <h1 className="text-sm font-semibold">Bronze Session</h1>
+          </div>
+          <div className="w-6" />
+        </div>
+      )}
       {/* Filter bar */}
-      {filterBar}
+      {!embeddedMode && filterBar}
 
       {/* Mode selector */}
       <div className="flex gap-2 flex-wrap justify-center">

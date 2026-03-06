@@ -98,6 +98,7 @@ export default function SessionPage() {
       from: "session",
       mode: "bronze",
       date: dateParam,
+      embedded: "1",
     });
     if (inferredTopicTag) p.set("tag", inferredTopicTag);
     router.push(`/practice?${p.toString()}`);

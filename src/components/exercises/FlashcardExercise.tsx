@@ -4,29 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { ExerciseResult, SrsContent, SrsResult } from "@/lib/exerciseTypes";
 import { cn } from "@/lib/cn";
 import { Volume2 } from "lucide-react";
-
-async function playTTS(text: string) {
-  try {
-    const res = await fetch("/tutor/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.play();
-    audio.onended = () => URL.revokeObjectURL(url);
-  } catch {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "it-IT";
-      u.rate = 0.9;
-      speechSynthesis.speak(u);
-    }
-  }
-}
+import { playItalianTts } from "@/lib/audioTts";
 
 interface Props {
   content: unknown;
@@ -73,7 +51,7 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  playTTS(c.front);
+                  void playItalianTts(c.front, { userInitiated: true });
                 }}
                 className="p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition"
               >
@@ -91,7 +69,7 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                playTTS(c.front);
+                void playItalianTts(c.front, { userInitiated: true });
               }}
               className="mt-3 p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition"
             >
