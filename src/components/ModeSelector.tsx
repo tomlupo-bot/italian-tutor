@@ -11,8 +11,6 @@ interface ModeSelectorProps {
   onSelect: (mode: ExerciseMode) => void;
   suggested?: ExerciseMode;
   date?: string;
-  /** Total session completions per tier */
-  sessionCounts?: Record<string, number>;
 }
 
 // Local storage for tier completion tracking
@@ -73,7 +71,6 @@ export default function ModeSelector({
   exerciseCounts,
   onSelect,
   date,
-  sessionCounts,
 }: ModeSelectorProps) {
   const [scores, setScores] = useState<Record<string, TierScore | null>>({});
   const scoreDate = date ?? new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });

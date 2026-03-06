@@ -31,7 +31,6 @@ export default function SessionPage() {
   );
 
   const allExercises = useQuery(api.exercises.getByDate, { date: dateParam });
-  const modeCounts = useQuery(api.sessions.getModeCounts);
   const dueCards = useQuery(api.cards.getDue, { limit: 200 });
 
   const inferredTopicTag = useMemo(() => {
@@ -174,7 +173,6 @@ export default function SessionPage() {
           <ModeSelector
             exerciseCounts={exerciseCounts}
             onSelect={setSelectedMode}
-            sessionCounts={modeCounts ?? undefined}
           />
         </div>
       ) : selectedMode === "quick" ? (
@@ -193,7 +191,7 @@ export default function SessionPage() {
             onClick={() => setSelectedMode(null)}
             className="px-4 py-2 bg-card rounded-xl border border-white/10 text-sm"
           >
-            Choose different mode
+            Choose different tier
           </button>
         </div>
       ) : (
