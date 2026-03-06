@@ -7,6 +7,7 @@ import ExerciseRenderer from "./ExerciseRenderer";
 import ExerciseErrorBoundary from "./ExerciseErrorBoundary";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import Link from "next/link";
+import SessionSummary from "../SessionSummary";
 
 interface ExerciseFlowProps {
   exercises: Exercise[];
@@ -142,6 +143,8 @@ export default function ExerciseFlow({
           <>
             <CheckCircle size={48} className="text-success" />
             <h2 className="text-2xl font-bold">Session Complete!</h2>
+
+            {/* Contract rules */}
             <div className="w-full bg-card rounded-xl border border-white/10 p-4 space-y-2">
               <h3 className="text-sm font-medium text-white/70">{contract.headline}</h3>
               {contract.rules.map((rule) => (
@@ -154,28 +157,16 @@ export default function ExerciseFlow({
                 </div>
               ))}
             </div>
-            <div className="flex gap-6 text-center">
-              <div>
-                <p className="text-3xl font-bold text-accent-light">
-                  {results.size}/{total}
-                </p>
-                <p className="text-xs text-white/40">exercises</p>
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-success">
-                  {correctCount}
-                </p>
-                <p className="text-xs text-white/40">correct</p>
-              </div>
-              {sessionErrors.length > 0 && (
-                <div>
-                  <p className="text-3xl font-bold text-warn">
-                    {sessionErrors.length}
-                  </p>
-                  <p className="text-xs text-white/40">errors</p>
-                </div>
-              )}
-            </div>
+
+            {/* Progress Summary — scores, skills, SRS, trends */}
+            <SessionSummary
+              mode={mode}
+              exercisesCompleted={results.size}
+              correctCount={correctCount}
+              errorsCount={sessionErrors.length}
+            />
+
+            {/* Errors to review */}
             {sessionErrors.length > 0 && (
               <div className="w-full bg-card rounded-xl border border-white/10 p-4 space-y-2">
                 <h3 className="text-sm font-medium text-white/60">
@@ -192,6 +183,7 @@ export default function ExerciseFlow({
                 ))}
               </div>
             )}
+
             <Link
               href="/"
               className="px-6 py-3 bg-accent rounded-xl text-sm font-medium"
