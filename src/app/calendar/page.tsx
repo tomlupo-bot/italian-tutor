@@ -37,7 +37,6 @@ export default function CalendarPage() {
 
   const exerciseSummaries = useQuery(api.exercises.getDateSummaries, { from, to });
   const sessions = useQuery(api.sessions.getByDateRange, { from, to });
-  const modeCounts = useQuery(api.sessions.getModeCounts);
 
   // Fetch exercises for selected date (for ModeSelector counts)
   const selectedExercises = useQuery(
@@ -217,7 +216,6 @@ export default function CalendarPage() {
               exerciseCounts={exerciseCounts}
               onSelect={handleModeSelect}
               date={selectedDate}
-              sessionCounts={modeCounts ?? undefined}
             />
           ) : (
             <div className="bg-card rounded-2xl border border-white/10 p-4 text-center">
