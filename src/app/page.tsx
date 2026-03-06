@@ -65,8 +65,8 @@ export default function Home() {
           <h2 className="text-sm font-medium">How it works</h2>
           <ul className="text-xs text-white/50 space-y-2">
             <li>
-              <strong className="text-white/70">3 energy modes</strong> — Quick
-              (5 min), Standard (15 min), Deep (20 min)
+              <strong className="text-white/70">3 tiers</strong> — Bronze
+              (5 min), Silver (10 min), Gold (15 min)
             </li>
             <li>
               <strong className="text-white/70">8 exercise types</strong> —
