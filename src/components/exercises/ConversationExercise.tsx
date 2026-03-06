@@ -32,6 +32,8 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [audioPending, setAudioPending] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagLines, setDiagLines] = useState<string[]>([]);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef(Date.now());
@@ -47,6 +49,8 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
   const ttsRequestIdRef = useRef(0);
+  const diagSessionIdRef = useRef("");
+  const lastResultLogAtRef = useRef(0);
 
   const sttSupported =
     typeof window !== "undefined" &&
@@ -67,6 +71,31 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }
     setAudioPending(false);
   }, []);
+
+  const logDiagnostic = useCallback(
+    (event: string, data: Record<string, unknown> = {}) => {
+      const now = new Date();
+      const ts = now.toISOString();
+      const line = `${ts.slice(11, 19)} ${event}`;
+      if (showDiagnostics) {
+        setDiagLines((prev) => [...prev.slice(-7), line]);
+      }
+      const payload = {
+        source: "conversation_stt",
+        event,
+        session_id: diagSessionIdRef.current || "unset",
+        data,
+      };
+      console.info("[stt-diag]", payload);
+      void fetch("/tutor/api/client-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => undefined);
+    },
+    [showDiagnostics],
+  );
 
   const playAssistantAudio = useCallback(
     async (text: string) => {
@@ -174,10 +203,23 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       }
       const merged = `${committedTranscriptRef.current} ${interimText}`.trim();
       setTranscript(merged);
+      const now = Date.now();
+      if (finalText || now - lastResultLogAtRef.current > 2000) {
+        lastResultLogAtRef.current = now;
+        logDiagnostic("stt_result", {
+          final_len: finalText.length,
+          interim_len: interimText.length,
+          merged_len: merged.length,
+        });
+      }
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
+      logDiagnostic("stt_error", {
+        error: String(event?.error || "unknown"),
+        message: String(event?.message || ""),
+      });
       recognitionRef.current = null;
       setIsRecording(false);
       if (!recognitionWantedRef.current) {
@@ -200,13 +242,18 @@ export default function ConversationExercise({ content, onComplete }: Props) {
           next.start();
           recognitionRef.current = next;
           setIsRecording(true);
+          logDiagnostic("stt_restart_after_error");
         } catch {
           setIsRecording(false);
+          logDiagnostic("stt_restart_after_error_failed");
         }
       }, 260);
     };
 
     recognition.onend = () => {
+      logDiagnostic("stt_end", {
+        wanted: recognitionWantedRef.current,
+      });
       recognitionRef.current = null;
       if (!recognitionWantedRef.current) {
         setIsRecording(false);
@@ -224,16 +271,21 @@ export default function ConversationExercise({ content, onComplete }: Props) {
           next.start();
           recognitionRef.current = next;
           setIsRecording(true);
+          logDiagnostic("stt_restart_after_end");
         } catch {
           setIsRecording(false);
+          logDiagnostic("stt_restart_after_end_failed");
         }
       }, 180);
     };
 
     return recognition;
-  }, [clearRecognitionRestartTimer, loading, sttSupported]);
+  }, [clearRecognitionRestartTimer, loading, logDiagnostic, sttSupported]);
 
   const stopRecording = useCallback(() => {
+    logDiagnostic("stt_stop_requested", {
+      has_ref: Boolean(recognitionRef.current),
+    });
     recognitionWantedRef.current = false;
     clearRecognitionRestartTimer();
     if (recognitionRef.current) {
@@ -245,19 +297,31 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }
     recognitionRef.current = null;
     setIsRecording(false);
-  }, [clearRecognitionRestartTimer]);
+  }, [clearRecognitionRestartTimer, logDiagnostic]);
 
   const startRecording = useCallback(() => {
-    if (!sttSupported || loading) return;
+    if (!sttSupported || loading) {
+      logDiagnostic("stt_start_blocked", {
+        stt_supported: sttSupported,
+        loading,
+      });
+      return;
+    }
+    if (audioPending) {
+      stopAudioPlayback();
+      logDiagnostic("audio_stopped_before_stt");
+    }
     recognitionWantedRef.current = true;
     committedTranscriptRef.current = "";
     setTranscript("");
     clearRecognitionRestartTimer();
+    logDiagnostic("stt_start_requested");
 
     const recognition = createRecognition();
     if (!recognition) {
       recognitionWantedRef.current = false;
       setIsRecording(false);
+      logDiagnostic("stt_create_failed");
       return;
     }
 
@@ -265,9 +329,11 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       recognition.start();
       recognitionRef.current = recognition;
       setIsRecording(true);
+      logDiagnostic("stt_start_ok");
     } catch {
       // Mobile engines can throw InvalidStateError if restarted too quickly.
       setIsRecording(false);
+      logDiagnostic("stt_start_failed_retrying");
       clearRecognitionRestartTimer();
       recognitionRestartTimerRef.current = setTimeout(() => {
         if (!recognitionWantedRef.current || loading || recognitionRef.current) return;
@@ -281,17 +347,28 @@ export default function ConversationExercise({ content, onComplete }: Props) {
           retry.start();
           recognitionRef.current = retry;
           setIsRecording(true);
+          logDiagnostic("stt_retry_start_ok");
         } catch {
           recognitionWantedRef.current = false;
           setIsRecording(false);
+          logDiagnostic("stt_retry_start_failed");
         }
       }, 280);
     }
-  }, [clearRecognitionRestartTimer, createRecognition, loading, sttSupported]);
+  }, [
+    audioPending,
+    clearRecognitionRestartTimer,
+    createRecognition,
+    loading,
+    logDiagnostic,
+    stopAudioPlayback,
+    sttSupported,
+  ]);
 
   const toggleRecording = useCallback(() => {
     const now = Date.now();
     if (micToggleLockRef.current || now - lastToggleAtRef.current < 320) {
+      logDiagnostic("stt_toggle_ignored_locked");
       return;
     }
     micToggleLockRef.current = true;
@@ -301,11 +378,30 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }, 300);
 
     if (isRecording || recognitionWantedRef.current) {
+      logDiagnostic("stt_toggle_stop");
       stopRecording();
     } else {
+      logDiagnostic("stt_toggle_start");
       startRecording();
     }
-  }, [isRecording, startRecording, stopRecording]);
+  }, [isRecording, logDiagnostic, startRecording, stopRecording]);
+
+  useEffect(() => {
+    const search =
+      typeof window !== "undefined" ? window.location.search : "";
+    const debugEnabled = search.includes("sttDebug=1");
+    setShowDiagnostics(debugEnabled);
+    diagSessionIdRef.current = `${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    logDiagnostic("diag_init", {
+      stt_supported: sttSupported,
+      user_agent:
+        typeof window !== "undefined" ? window.navigator.userAgent : "unknown",
+      debug_enabled: debugEnabled,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -323,8 +419,9 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         }
       }
       stopAudioPlayback();
+      logDiagnostic("diag_unmount");
     };
-  }, [clearRecognitionRestartTimer, stopAudioPlayback]);
+  }, [clearRecognitionRestartTimer, logDiagnostic, stopAudioPlayback]);
 
   // Open with Marco's greeting
   useEffect(() => {
@@ -477,6 +574,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   const sendTranscript = () => {
     const text = transcript.trim();
     if (!text) return;
+    logDiagnostic("stt_send_transcript", { len: text.length });
     stopRecording();
     setTranscript("");
     committedTranscriptRef.current = "";
@@ -597,6 +695,19 @@ export default function ConversationExercise({ content, onComplete }: Props) {
             <span className="text-xs text-danger font-medium">Recording...</span>
           </div>
           {transcript && <p className="text-sm text-white/70 mt-1 italic">{transcript}</p>}
+          {showDiagnostics && (
+            <p className="text-[10px] text-white/50 mt-1">
+              dbg: rec={String(isRecording)} wanted={String(recognitionWantedRef.current)} load={String(loading)} audio={String(audioPending)}
+            </p>
+          )}
+        </div>
+      )}
+
+      {showDiagnostics && diagLines.length > 0 && (
+        <div className="px-4 pb-2 text-[10px] text-white/45 border-t border-white/5">
+          {diagLines.map((line, idx) => (
+            <div key={`${line}-${idx}`}>{line}</div>
+          ))}
         </div>
       )}
 
