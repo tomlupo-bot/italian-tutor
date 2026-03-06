@@ -12,6 +12,7 @@ import { MODE_TYPES } from "@/lib/exerciseTypes";
 import ExerciseFlow from "@/components/exercises/ExerciseFlow";
 import ModeSelector from "@/components/ModeSelector";
 import { useState } from "react";
+import { getWeeklyMission } from "@/lib/weeklyMission";
 
 const MODE_LABELS: Record<ExerciseMode, string> = {
   quick: "Bronze",
@@ -32,6 +33,7 @@ export default function SessionPage() {
 
   const allExercises = useQuery(api.exercises.getByDate, { date: dateParam });
   const dueCards = useQuery(api.cards.getDue, { limit: 200 });
+  const weekMission = useMemo(() => getWeeklyMission(dateParam), [dateParam]);
 
   const inferredTopicTag = useMemo(() => {
     if (!allExercises || allExercises.length === 0) return "";
@@ -162,9 +164,21 @@ export default function SessionPage() {
             onClick={() => setSelectedMode(null)}
             className="text-xs text-white/40 hover:text-white/60 transition"
           >
-            Change mode
+            Change tier
           </button>
         )}
+      </div>
+
+      <div className="px-4 pt-3">
+        <div className="rounded-xl border border-white/10 bg-card/40 p-3">
+          <p className="text-[10px] text-accent-light uppercase tracking-wider">
+            {weekMission.weekId} Mission
+          </p>
+          <p className="text-sm font-medium mt-0.5">{weekMission.title}</p>
+          <p className="text-xs text-white/45 mt-1">
+            {selectedMode ? weekMission.acts[selectedMode] : weekMission.problem}
+          </p>
+        </div>
       </div>
 
       {/* Mode selection or exercise flow */}

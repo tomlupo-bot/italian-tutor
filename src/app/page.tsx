@@ -9,6 +9,7 @@ import { getTodayWarsaw } from "../lib/date";
 import ModeSelector from "../components/ModeSelector";
 import { useRouter } from "next/navigation";
 import type { ExerciseMode } from "@/lib/exerciseTypes";
+import { getWeekWindow, getWeeklyMission } from "@/lib/weeklyMission";
 
 export default function Home() {
   const router = useRouter();
@@ -18,6 +19,9 @@ export default function Home() {
   const dueCards = useQuery(api.cards.getDue, { limit: 999 });
   const todayExercises = useQuery(api.exercises.getByDate, { date: today });
   const milestones = useQuery(api.milestones.getAll);
+  const recentSessions = useQuery(api.sessions.listRecent, { limit: 120 });
+  const weekMission = useMemo(() => getWeeklyMission(today), [today]);
+  const weekWindow = useMemo(() => getWeekWindow(today), [today]);
 
   // Count exercises per type
   const exerciseCounts = useMemo(() => {
@@ -36,13 +40,19 @@ export default function Home() {
     milestones !== undefined &&
     stats.totalSessions === 0 &&
     milestones.length === 0;
+  const weeklyMissionSessions = useMemo(() => {
+    if (!recentSessions) return 0;
+    return recentSessions.filter(
+      (s) => s.date >= weekWindow.monday && s.date <= weekWindow.sunday,
+    ).length;
+  }, [recentSessions, weekWindow.monday, weekWindow.sunday]);
 
   const handleModeSelect = (mode: ExerciseMode) => {
     router.push(`/session/${today}?mode=${mode}`);
   };
 
   // Loading state
-  if (stats === undefined || todayExercises === undefined) {
+  if (stats === undefined || todayExercises === undefined || recentSessions === undefined) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <Loader2 size={32} className="text-accent animate-spin" />
@@ -134,6 +144,37 @@ export default function Home() {
             ? `${totalExercises} exercises ready`
             : "No exercises today"}
         </h1>
+      </div>
+
+      {/* Weekly immersive mission */}
+      <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] text-accent-light uppercase tracking-wider">Weekly Mission</p>
+          <p className="text-[10px] text-white/35">{weekMission.weekLabel}</p>
+        </div>
+        <h2 className="text-base font-semibold">{weekMission.title}</h2>
+        <p className="text-xs text-white/50">{weekMission.problem}</p>
+        <p className="text-xs text-white/35">{weekMission.immersion}</p>
+        <div className="pt-1">
+          <div className="flex items-center justify-between text-[11px] text-white/40">
+            <span>Mission progress</span>
+            <span>
+              {Math.min(weeklyMissionSessions, weekMission.objectiveSessions)}/{weekMission.objectiveSessions} sessions
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-white/5 rounded-full mt-1">
+            <div
+              className="h-full bg-accent rounded-full transition-all"
+              style={{
+                width: `${Math.min(
+                  100,
+                  (weeklyMissionSessions / weekMission.objectiveSessions) * 100,
+                )}%`,
+              }}
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-white/45">{weekMission.objective}</p>
       </div>
 
       {/* Mode selector or fallback */}

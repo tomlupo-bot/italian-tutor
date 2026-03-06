@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import ExerciseRenderer from "@/components/exercises/ExerciseRenderer";
@@ -8,6 +8,7 @@ import ExerciseErrorBoundary from "@/components/exercises/ExerciseErrorBoundary"
 import type { Exercise, ExerciseResult } from "@/lib/exerciseTypes";
 import { Loader2, RefreshCw, Target, Shuffle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { apiPath } from "@/lib/paths";
 
 type PracticeMode = "errors" | "random" | "typed";
 
@@ -73,7 +74,7 @@ export default function ExercisesPage() {
         // Error Drills — generate with OpenAI
         setLoading(true);
         try {
-          const res = await fetch("/api/generate-practice", {
+          const res = await fetch(apiPath("/api/generate-practice"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -105,23 +106,22 @@ export default function ExercisesPage() {
 
   // Handle typed mode: when practiceExercises reactively updates after type filter change
   const prevPracticeRef = useRef(practiceExercises);
-  if (
-    loading &&
-    mode === "typed" &&
-    practiceExercises &&
-    practiceExercises !== prevPracticeRef.current
-  ) {
+  useEffect(() => {
+    if (!loading || mode !== "typed" || !practiceExercises) return;
+    if (practiceExercises === prevPracticeRef.current) return;
+
     prevPracticeRef.current = practiceExercises;
     if (practiceExercises.length > 0) {
       setExercises(practiceExercises as Exercise[]);
       setLoading(false);
       setError(null);
-    } else {
-      setError("No exercises available for this type. Try another!");
-      setLoading(false);
-      setMode(null);
+      return;
     }
-  }
+
+    setError("No exercises available for this type. Try another!");
+    setLoading(false);
+    setMode(null);
+  }, [loading, mode, practiceExercises]);
 
   const currentExercise = exercises[current] ?? null;
   const progress = exercises.length > 0 ? (current / exercises.length) * 100 : 0;

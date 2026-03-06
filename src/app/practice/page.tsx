@@ -26,6 +26,8 @@ const LEVEL_COLORS: Record<string, string> = {
   B2: "bg-warn/20 text-warn border-warn/30",
 };
 
+const TIER_KEY = "italian-tutor-tier-scores";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ConvexCard = Record<string, any>;
 
@@ -109,6 +111,27 @@ export default function PracticePage() {
 
   const cards = filteredCards ?? offlineCards ?? [];
   const currentCard = cards[idx] as ConvexCard | undefined;
+
+  useEffect(() => {
+    if (!done || !embeddedMode || !sessionDate) return;
+    const scorePct =
+      reviewed > 0 ? Math.round((totalQuality / (reviewed * 5)) * 100) : 0;
+    try {
+      const raw = localStorage.getItem(TIER_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const current = parsed?.[sessionDate]?.quick;
+      const bestScore = Math.max(Number(current?.bestScore ?? 0), scorePct);
+      parsed[sessionDate] = parsed[sessionDate] ?? {};
+      parsed[sessionDate].quick = {
+        completed: true,
+        bestScore,
+        lastCompleted: new Date().toISOString(),
+      };
+      localStorage.setItem(TIER_KEY, JSON.stringify(parsed));
+    } catch {
+      // non-critical
+    }
+  }, [done, embeddedMode, reviewed, sessionDate, totalQuality]);
 
   // Reset session when filters change
   useEffect(() => {

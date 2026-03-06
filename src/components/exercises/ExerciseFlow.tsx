@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useExerciseSession } from "@/hooks/useExerciseSession";
 import type { Exercise, ExerciseMode } from "@/lib/exerciseTypes";
 import ExerciseRenderer from "./ExerciseRenderer";
@@ -31,6 +32,83 @@ export default function ExerciseFlow({
     submitResult,
     skip,
   } = useExerciseSession({ exercises, mode, date });
+
+  const contract = useMemo(() => {
+    let totalItems = 0;
+    let correctItems = 0;
+    for (const r of results.values()) {
+      if ("correct" in r && typeof (r as { correct: boolean }).correct === "boolean") {
+        totalItems += 1;
+        if ((r as { correct: boolean }).correct) correctItems += 1;
+      } else if ("scores" in r && Array.isArray((r as { scores: boolean[] }).scores)) {
+        for (const s of (r as { scores: boolean[] }).scores) {
+          totalItems += 1;
+          if (s) correctItems += 1;
+        }
+      }
+    }
+    const accuracy = totalItems > 0 ? correctItems / totalItems : 0;
+    const completedAll = results.size >= total && total > 0;
+
+    if (mode === "standard") {
+      return {
+        headline: "Marco Contract: Clean Structured Execution",
+        rules: [
+          { label: "Finish all Silver exercises", pass: completedAll },
+          {
+            label: "Reach at least 70% accuracy",
+            pass: accuracy >= 0.7,
+            meta: totalItems > 0 ? `${Math.round(accuracy * 100)}%` : "0%",
+          },
+        ],
+      };
+    }
+
+    if (mode === "deep") {
+      const convEx = exercises.find((ex) => ex.type === "conversation");
+      const convResult = convEx ? results.get(convEx._id) : null;
+      const userTurns = convResult && "messages" in convResult
+        ? (convResult as { messages: Array<{ role: string; content: string }> }).messages
+            .filter((m) => m.role === "user" && m.content.trim()).length
+        : 0;
+      const targetPhrases =
+        convEx && convEx.type === "conversation"
+          ? ((convEx.content as { target_phrases?: string[] }).target_phrases ?? [])
+          : [];
+      const userText =
+        convResult && "messages" in convResult
+          ? (convResult as { messages: Array<{ role: string; content: string }> }).messages
+              .filter((m) => m.role === "user")
+              .map((m) => m.content.toLowerCase())
+              .join(" ")
+          : "";
+      const usedTargets = targetPhrases.filter((p) =>
+        userText.includes(p.toLowerCase()),
+      ).length;
+
+      return {
+        headline: "Marco Contract: Immersive Gold Roleplay",
+        rules: [
+          { label: "Complete the full Gold session", pass: completedAll },
+          {
+            label: "Use at least 2 target phrases in conversation",
+            pass: usedTargets >= 2,
+            meta: `${usedTargets}/2`,
+          },
+          {
+            label: "Sustain dialogue for at least 4 learner turns",
+            pass: userTurns >= 4,
+            meta: `${userTurns}/4`,
+          },
+        ],
+      };
+    }
+
+    return {
+      headline: "Marco Contract",
+      rules: [{ label: "Finish the session", pass: completedAll }],
+    };
+  }, [exercises, mode, results, total]);
 
   // ── Completion screen ──────────────────────────────────────────────
   if (done) {
@@ -64,6 +142,18 @@ export default function ExerciseFlow({
           <>
             <CheckCircle size={48} className="text-success" />
             <h2 className="text-2xl font-bold">Session Complete!</h2>
+            <div className="w-full bg-card rounded-xl border border-white/10 p-4 space-y-2">
+              <h3 className="text-sm font-medium text-white/70">{contract.headline}</h3>
+              {contract.rules.map((rule) => (
+                <div key={rule.label} className="flex items-center justify-between gap-3 text-sm">
+                  <span className={rule.pass ? "text-success" : "text-warn"}>{rule.label}</span>
+                  <span className="text-xs text-white/35">
+                    {rule.meta ? `${rule.meta} · ` : ""}
+                    {rule.pass ? "met" : "missed"}
+                  </span>
+                </div>
+              ))}
+            </div>
             <div className="flex gap-6 text-center">
               <div>
                 <p className="text-3xl font-bold text-accent-light">
@@ -131,6 +221,13 @@ export default function ExerciseFlow({
 
   return (
     <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-4 pb-20">
+      <div className="rounded-xl border border-white/10 bg-card/40 px-3 py-2">
+        <p className="text-[10px] text-accent-light uppercase tracking-wider">
+          Session Contract
+        </p>
+        <p className="text-xs text-white/60 mt-0.5">{contract.headline}</p>
+      </div>
+
       {/* Progress bar */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">

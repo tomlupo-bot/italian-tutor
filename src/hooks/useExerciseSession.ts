@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getTodayWarsaw } from "@/lib/date";
 import { normalizeContent } from "@/lib/normalizeContent";
+import { apiPath } from "@/lib/paths";
 import type {
   ClozeContent,
   ErrorHuntContent,
@@ -45,6 +46,27 @@ interface CorrectionCard {
   source: "correction";
   skillId?: string;
   errorCategory?: string;
+}
+
+const TIER_KEY = "italian-tutor-tier-scores";
+
+function persistTierScore(date: string, mode: ExerciseMode, scorePercent: number) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(TIER_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const current = parsed?.[date]?.[mode];
+    const bestScore = Math.max(Number(current?.bestScore ?? 0), scorePercent);
+    parsed[date] = parsed[date] ?? {};
+    parsed[date][mode] = {
+      completed: true,
+      bestScore,
+      lastCompleted: new Date().toISOString(),
+    };
+    localStorage.setItem(TIER_KEY, JSON.stringify(parsed));
+  } catch {
+    // non-critical
+  }
 }
 
 /**
@@ -189,7 +211,7 @@ async function enrichCorrectionCards(
   updateFn: (args: { it: string; en: string }) => Promise<{ updated: boolean }>,
 ) {
   try {
-    const res = await fetch("/api/enrich-errors", {
+    const res = await fetch(apiPath("/api/enrich-errors"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -335,6 +357,7 @@ export function useExerciseSession({
             phrasesUsed: [],
             errors: sessionErrors,
           });
+          persistTierScore(sessionDate, mode, Math.round(pct * 100));
 
           // Extract correction cards from wrong answers and add to SRS deck
           const correctionCards = extractCorrectionCards(exercises, allResults);

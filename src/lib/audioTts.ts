@@ -1,5 +1,7 @@
 "use client";
 
+import { apiPath } from "./paths";
+
 let currentAudio: HTMLAudioElement | null = null;
 
 interface PlayOptions {
@@ -24,7 +26,7 @@ export async function playItalianTts(
   }
 
   try {
-    const res = await fetch("/tutor/api/tts", {
+    const res = await fetch(apiPath("/api/tts"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),

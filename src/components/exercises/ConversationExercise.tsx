@@ -9,6 +9,9 @@ import type {
   ExerciseResult,
 } from "@/lib/exerciseTypes";
 import { cn } from "@/lib/cn";
+import { apiPath } from "@/lib/paths";
+import { getTodayWarsaw } from "@/lib/date";
+import { getWeeklyMission } from "@/lib/weeklyMission";
 import { Check, Mic, Send, Square, Volume2 } from "lucide-react";
 
 interface ChatMessage {
@@ -35,6 +38,7 @@ function pickRecorderMimeType(): string | undefined {
 
 export default function ConversationExercise({ content, onComplete }: Props) {
   const c = content as ConversationContent;
+  const weeklyMission = getWeeklyMission(getTodayWarsaw());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -81,7 +85,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         data,
       };
       console.info("[mediarec-diag]", payload);
-      void fetch("/tutor/api/client-log", {
+      void fetch(apiPath("/api/client-log"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -116,7 +120,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       setTapToPlayText("");
 
       try {
-        const res = await fetch("/tutor/api/tts", {
+        const res = await fetch(apiPath("/api/tts"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
@@ -211,12 +215,17 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       checkPhrasesUsed(userMsg);
 
       try {
-        const res = await fetch("/tutor/api/chat", {
+        const res = await fetch(apiPath("/api/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-            systemPrompt: c.system_prompt || undefined,
+            systemPrompt: [
+              c.system_prompt,
+              `Weekly mission: ${weeklyMission.title}. ${weeklyMission.immersion} Keep dialogue immersive and move the scenario forward.`,
+            ]
+              .filter(Boolean)
+              .join("\n\n"),
             lessonType: "structured_unit",
             scenarioTitle: c.scenario,
             scenarioSetup: c.scenario,
@@ -311,7 +320,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         form.append("audio", new File([blob], `recording.${ext}`, { type: blob.type || "audio/webm" }));
         form.append("language", "it");
 
-        const res = await fetch("/tutor/api/stt", {
+        const res = await fetch(apiPath("/api/stt"), {
           method: "POST",
           body: form,
         });
