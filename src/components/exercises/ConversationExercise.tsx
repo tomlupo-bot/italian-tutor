@@ -53,6 +53,8 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   const lastResultLogAtRef = useRef(0);
   const sttLastResultAtRef = useRef(0);
   const sttWatchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sttNoSpeechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sttSpeechSeenRef = useRef(false);
 
   const sttSupported =
     typeof window !== "undefined" &&
@@ -184,6 +186,13 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }
   }, []);
 
+  const clearNoSpeechTimer = useCallback(() => {
+    if (sttNoSpeechTimerRef.current) {
+      clearTimeout(sttNoSpeechTimerRef.current);
+      sttNoSpeechTimerRef.current = null;
+    }
+  }, []);
+
   const armWatchdogTimer = useCallback(() => {
     clearWatchdogTimer();
     sttWatchdogTimerRef.current = setTimeout(() => {
@@ -197,6 +206,20 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       }
     }, 6500);
   }, [clearWatchdogTimer, loading, logDiagnostic]);
+
+  const armNoSpeechTimer = useCallback(() => {
+    clearNoSpeechTimer();
+    sttNoSpeechTimerRef.current = setTimeout(() => {
+      if (!recognitionWantedRef.current || loading || !recognitionRef.current) return;
+      if (sttSpeechSeenRef.current) return;
+      logDiagnostic("stt_no_speech_quick_restart");
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // ignore
+      }
+    }, 2800);
+  }, [clearNoSpeechTimer, loading, logDiagnostic]);
 
   const createRecognition = useCallback(() => {
     if (!sttSupported) return null;
@@ -213,10 +236,16 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     recognition.maxAlternatives = 1;
     recognition.onstart = () => {
       sttLastResultAtRef.current = Date.now();
+      sttSpeechSeenRef.current = false;
       logDiagnostic("stt_onstart", { continuous: recognition.continuous });
       armWatchdogTimer();
+      armNoSpeechTimer();
     };
-    recognition.onspeechstart = () => logDiagnostic("stt_onspeechstart");
+    recognition.onspeechstart = () => {
+      sttSpeechSeenRef.current = true;
+      clearNoSpeechTimer();
+      logDiagnostic("stt_onspeechstart");
+    };
     recognition.onspeechend = () => logDiagnostic("stt_onspeechend");
     recognition.onaudiostart = () => logDiagnostic("stt_onaudiostart");
     recognition.onaudioend = () => logDiagnostic("stt_onaudioend");
@@ -240,6 +269,10 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       setTranscript(merged);
       const now = Date.now();
       sttLastResultAtRef.current = now;
+      if (finalText.length > 0 || interimText.length > 0) {
+        sttSpeechSeenRef.current = true;
+        clearNoSpeechTimer();
+      }
       armWatchdogTimer();
       if (finalText || now - lastResultLogAtRef.current > 2000) {
         lastResultLogAtRef.current = now;
@@ -265,6 +298,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       const fatalErrors = new Set(["not-allowed", "service-not-allowed", "audio-capture"]);
       if (fatalErrors.has(event?.error)) {
         recognitionWantedRef.current = false;
+        clearNoSpeechTimer();
         clearWatchdogTimer();
         return;
       }
@@ -289,6 +323,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     };
 
     recognition.onend = () => {
+      clearNoSpeechTimer();
       clearWatchdogTimer();
       logDiagnostic("stt_end", {
         wanted: recognitionWantedRef.current,
@@ -321,7 +356,9 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     return recognition;
   }, [
     armWatchdogTimer,
+    armNoSpeechTimer,
     clearRecognitionRestartTimer,
+    clearNoSpeechTimer,
     clearWatchdogTimer,
     isIOSWebKit,
     loading,
@@ -334,6 +371,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       has_ref: Boolean(recognitionRef.current),
     });
     recognitionWantedRef.current = false;
+    clearNoSpeechTimer();
     clearWatchdogTimer();
     clearRecognitionRestartTimer();
     if (recognitionRef.current) {
@@ -345,7 +383,12 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     }
     recognitionRef.current = null;
     setIsRecording(false);
-  }, [clearRecognitionRestartTimer, clearWatchdogTimer, logDiagnostic]);
+  }, [
+    clearNoSpeechTimer,
+    clearRecognitionRestartTimer,
+    clearWatchdogTimer,
+    logDiagnostic,
+  ]);
 
   const startRecording = useCallback(() => {
     if (!sttSupported || loading) {
@@ -362,7 +405,9 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     recognitionWantedRef.current = true;
     committedTranscriptRef.current = "";
     sttLastResultAtRef.current = Date.now();
+    sttSpeechSeenRef.current = false;
     setTranscript("");
+    clearNoSpeechTimer();
     clearWatchdogTimer();
     clearRecognitionRestartTimer();
     logDiagnostic("stt_start_requested");
@@ -408,6 +453,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   }, [
     audioPending,
     clearRecognitionRestartTimer,
+    clearNoSpeechTimer,
     clearWatchdogTimer,
     createRecognition,
     loading,
@@ -461,6 +507,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   useEffect(() => {
     return () => {
       recognitionWantedRef.current = false;
+      clearNoSpeechTimer();
       clearWatchdogTimer();
       clearRecognitionRestartTimer();
       if (recognitionRef.current) {
@@ -475,6 +522,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
     };
   }, [
     clearRecognitionRestartTimer,
+    clearNoSpeechTimer,
     clearWatchdogTimer,
     logDiagnostic,
     stopAudioPlayback,
