@@ -1,36 +1,26 @@
 "use client";
 
-import { useMemo } from "react";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { useProgressAnalytics } from "@/hooks/useProgressAnalytics";
 import MilestoneBar from "@/components/MilestoneBar";
-import { ArrowLeft, Flame, Loader2, Trophy, TrendingUp } from "lucide-react";
+import {
+  ArrowLeft,
+  Flame,
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Lock,
+  Unlock,
+  Brain,
+  Target,
+  BookOpen,
+  BarChart3,
+} from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { Lock, Unlock } from "lucide-react";
-
-interface Milestone {
-  skillId: string;
-  name: string;
-  level: string;
-  category: string;
-  rating: number;
-  active: boolean;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyCard = Record<string, any>;
-
-const LEVEL_ORDER = ["A1", "A2", "B1", "B2"];
-
-const CATEGORY_LABELS: Record<string, string> = {
-  cloze: "Fill-in-the-blank",
-  word_order: "Word order",
-  grammar_pattern: "Grammar patterns",
-  translation: "Translation",
-  error_recognition: "Error spotting",
-  other: "General",
-};
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useMemo } from "react";
 
 const MODE_META: { mode: string; label: string; emoji: string; color: string }[] = [
   { mode: "quick", label: "Bronze", emoji: "🥉", color: "from-amber-700/20 to-amber-800/5 border-amber-600/30" },
@@ -38,151 +28,46 @@ const MODE_META: { mode: string; label: string; emoji: string; color: string }[]
   { mode: "deep", label: "Gold", emoji: "🥇", color: "from-yellow-500/20 to-yellow-600/5 border-yellow-500/30" },
 ];
 
-function WeeklyTrends({ weeks }: { weeks: { label: string; sessions: number; minutes: number }[] }) {
-  if (weeks.length === 0 || !weeks.some((w) => w.sessions > 0)) return null;
-  const maxSessions = Math.max(...weeks.map((w) => w.sessions), 1);
-  const totalMinutes = weeks.reduce((sum, w) => sum + w.minutes, 0);
+const LEVEL_COLORS: Record<string, string> = {
+  A1: "bg-green-400",
+  A2: "bg-accent",
+  B1: "bg-purple-400",
+  B2: "bg-yellow-400",
+};
 
-  return (
-    <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TrendingUp size={14} className="text-accent-light" />
-          <h2 className="text-sm font-medium text-white/60">Weekly Activity</h2>
-        </div>
-        <span className="text-[10px] text-white/30">{totalMinutes} min total</span>
-      </div>
-      <div className="flex items-end gap-1.5 h-20">
-        {weeks.map((week, i) => {
-          const pct = maxSessions > 0 ? (week.sessions / maxSessions) * 100 : 0;
-          const isCurrentWeek = i === weeks.length - 1;
-          return (
-            <div key={week.label} className="flex-1 flex flex-col items-center gap-1">
-              <div className="w-full flex items-end justify-center" style={{ height: "60px" }}>
-                <div
-                  className={cn(
-                    "w-full max-w-[24px] rounded-t-md transition-all",
-                    isCurrentWeek ? "bg-accent" : "bg-white/10",
-                    week.sessions === 0 && "bg-white/5",
-                  )}
-                  style={{ height: `${Math.max(pct, 4)}%` }}
-                />
-              </div>
-              <span className={cn(
-                "text-[8px] leading-none",
-                isCurrentWeek ? "text-accent-light" : "text-white/20",
-              )}>
-                {week.label.split(" ")[0]}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+const CAT_LABELS: Record<string, string> = {
+  grammar: "Grammar",
+  vocab: "Vocabulary",
+  functional: "Functional",
+};
+
+function TrendIcon({ trend }: { trend: string }) {
+  if (trend === "up") return <TrendingUp size={14} className="text-success" />;
+  if (trend === "down") return <TrendingDown size={14} className="text-warn" />;
+  return <Minus size={14} className="text-white/30" />;
 }
 
 export default function ProgressPage() {
-  const milestones = useQuery(api.milestones.getAll);
+  const analytics = useProgressAnalytics();
   const stats = useQuery(api.sessions.getStats);
-  const allCards = useQuery(api.cards.getAll);
-  const modeCounts = useQuery(api.sessions.getModeCounts);
   const recentSessions = useQuery(api.sessions.listRecent, { limit: 200 });
+  const milestones = useQuery(api.milestones.getAll);
 
-  // Group milestones by category
-  const groupedMilestones = useMemo(() => {
-    if (!milestones) return {};
-    const groups: Record<string, Milestone[]> = {};
-    for (const m of milestones as Milestone[]) {
-      if (!m.active) continue;
-      if (!groups[m.category]) groups[m.category] = [];
-      groups[m.category].push(m);
-    }
-    for (const cat of Object.keys(groups)) {
-      groups[cat].sort((a, b) => {
-        const li = LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level);
-        if (li !== 0) return li;
-        return a.name.localeCompare(b.name);
-      });
-    }
-    return groups;
-  }, [milestones]);
-
-  // B2 activation meter: how close to unlocking B2 content
-  const b2Progress = useMemo(() => {
-    if (!milestones) return null;
-    const b1Skills = (milestones as Milestone[]).filter(
-      (m) => m.active && m.level === "B1",
-    );
-    if (b1Skills.length === 0) return null;
-    const mastered = b1Skills.filter((m) => m.rating >= 3).length;
-    const threshold = Math.ceil(b1Skills.length * 0.8);
-    const unlocked = mastered >= threshold;
-    return { mastered, total: b1Skills.length, threshold, unlocked };
-  }, [milestones]);
-
-  // CEFR estimate from milestones, or fallback
-  const cefrEstimate = useMemo(() => {
-    if (!milestones) return null;
-    const active = (milestones as Milestone[]).filter((m) => m.active);
-    if (active.length === 0) return null;
-    const avg = active.reduce((sum, m) => sum + m.rating, 0) / active.length;
-    if (avg >= 3.5) return "B2";
-    if (avg >= 2.5) return "B1";
-    if (avg >= 1.5) return "A2";
-    return "A1";
-  }, [milestones]);
-
-  const cefrLabel = cefrEstimate
-    ? cefrEstimate
-    : stats && stats.totalSessions > 0
-      ? "A2"
-      : "—";
-
-  // Correction cards — recent mistakes to review
-  const corrections = useMemo(() => {
-    if (!allCards) return { recent: [], byCategory: {} as Record<string, number>, total: 0 };
-    const correctionCards = (allCards as AnyCard[]).filter(
-      (c) => c.source === "correction",
-    );
-    const byCategory: Record<string, number> = {};
-    for (const c of correctionCards) {
-      const cat = c.errorCategory || "other";
-      byCategory[cat] = (byCategory[cat] ?? 0) + 1;
-    }
-    const recent = correctionCards
-      .sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0))
-      .slice(0, 8);
-    return { recent, byCategory, total: correctionCards.length };
-  }, [allCards]);
-
-  // Total mode completions
-  const totalModeCompletions = modeCounts
-    ? (modeCounts.quick ?? 0) + (modeCounts.standard ?? 0) + (modeCounts.deep ?? 0)
-    : 0;
-
-  // Weekly activity trends (last 8 weeks)
+  // Weekly activity chart (last 8 weeks)
   const weeklyTrends = useMemo(() => {
     if (!recentSessions) return [];
     const now = new Date();
     const weeks: { label: string; sessions: number; minutes: number }[] = [];
-
     for (let w = 7; w >= 0; w--) {
       const weekStart = new Date(now);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1 - w * 7); // Monday
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1 - w * 7);
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
-
+      weekEnd.setDate(weekEnd.getDate() + 6);
       const startStr = weekStart.toLocaleDateString("sv-SE");
       const endStr = weekEnd.toLocaleDateString("sv-SE");
-
-      const weekSessions = recentSessions.filter(
-        (s) => s.date >= startStr && s.date <= endStr,
-      );
-
-      const label = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const weekSessions = recentSessions.filter((s) => s.date >= startStr && s.date <= endStr);
       weeks.push({
-        label,
+        label: weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         sessions: weekSessions.length,
         minutes: Math.round(weekSessions.reduce((sum, s) => sum + s.duration, 0)),
       });
@@ -190,8 +75,24 @@ export default function ProgressPage() {
     return weeks;
   }, [recentSessions]);
 
-  // Loading
-  if (milestones === undefined || stats === undefined) {
+  // Grouped milestones for detailed view
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const groupedByLevel = useMemo(() => {
+    if (!milestones) return {} as Record<string, any[]>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const groups: Record<string, any[]> = {};
+    for (const m of milestones) {
+      if (!(m as { active: boolean }).active) continue;
+      const level = (m as { level: string }).level;
+      (groups[level] ??= []).push(m);
+    }
+    for (const level of Object.keys(groups)) {
+      groups[level].sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
+    }
+    return groups;
+  }, [milestones]);
+
+  if (analytics.loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <Loader2 size={32} className="text-accent animate-spin" />
@@ -199,31 +100,25 @@ export default function ProgressPage() {
     );
   }
 
+  const wc = analytics.weekComparison;
+  const b2 = analytics.b2Activation;
+
   return (
     <main className="max-w-lg mx-auto pb-24 px-4 py-4 flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link
-          href="/"
-          className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white"
-        >
+        <Link href="/" className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white">
           <ArrowLeft size={20} />
         </Link>
         <h1 className="text-lg font-semibold flex-1">Progress</h1>
       </div>
 
-      {/* Level + Streak cards */}
+      {/* Top cards: CEFR + Streak */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Level card */}
         <div className="bg-card rounded-2xl border border-white/10 p-4 flex flex-col items-center gap-1">
-          <span className="text-3xl font-bold text-accent-light">{cefrLabel}</span>
+          <span className="text-3xl font-bold text-accent-light">{analytics.cefr}</span>
           <span className="text-[10px] text-white/30 uppercase tracking-wider">CEFR Level</span>
-          {!cefrEstimate && stats && stats.totalSessions > 0 && (
-            <span className="text-[9px] text-white/20">(starting)</span>
-          )}
         </div>
-
-        {/* Streak card */}
         <div className="bg-card rounded-2xl border border-white/10 p-4 flex flex-col items-center gap-1">
           <div className="flex items-center gap-1.5">
             <Flame size={22} className="text-orange-400" />
@@ -234,141 +129,270 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      {/* Mode Stats — chip row */}
-      {modeCounts && totalModeCompletions > 0 && (
+      {/* 7-Day Comparison */}
+      {wc && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-accent-light" />
+            <h2 className="text-sm font-medium text-white/60">This Week vs Last</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <TrendIcon trend={wc.volumeTrend} />
+                <span className="text-sm">{wc.current.sessions} sessions</span>
+              </div>
+              <p className="text-[10px] text-white/30 ml-6">
+                {wc.previous.sessions > 0 ? `was ${wc.previous.sessions} last week` : "first week!"}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <TrendIcon trend={wc.ratingTrend} />
+                <span className="text-sm">{wc.current.avgRating}/5 avg</span>
+              </div>
+              <p className="text-[10px] text-white/30 ml-6">
+                {wc.previous.avgRating > 0 ? `was ${wc.previous.avgRating}/5` : "—"}
+              </p>
+            </div>
+          </div>
+          {/* Error trend */}
+          {(wc.current.errors > 0 || wc.previous.errors > 0) && (
+            <div className="pt-2 border-t border-white/5 flex items-center gap-2">
+              <span className="text-xs text-white/40">Errors:</span>
+              <span className="text-xs text-warn">{wc.current.errors} this week</span>
+              {wc.previous.errors > 0 && (
+                <span className="text-[10px] text-white/25">({wc.previous.errors} last)</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Mode Completions */}
+      {Object.keys(analytics.modeBreakdown).length > 0 && (
         <div className="flex gap-2">
           {MODE_META.map(({ mode, emoji, color }) => {
-            const count = modeCounts[mode] ?? 0;
+            const data = analytics.modeBreakdown[mode];
+            if (!data) return null;
             return (
               <div
                 key={mode}
-                className={`flex-1 rounded-xl border bg-gradient-to-br ${color} px-3 py-2.5 flex items-center justify-center gap-1.5`}
+                className={`flex-1 rounded-xl border bg-gradient-to-br ${color} px-3 py-2.5 text-center`}
               >
                 <span className="text-base">{emoji}</span>
-                <span className="text-sm font-semibold tabular-nums">{count}x</span>
+                <p className="text-sm font-semibold tabular-nums">{data.sessions}x</p>
+                <p className="text-[9px] text-white/30">avg {data.avgRating}/5</p>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Weekly Trends */}
-      <WeeklyTrends weeks={weeklyTrends} />
-
-      {/* Mastered cards */}
-      {stats && stats.masteredCards > 0 && (
-        <div className="bg-card rounded-2xl border border-white/10 p-4 flex items-center gap-3">
-          <Trophy size={20} className="text-yellow-400 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium">{stats.masteredCards} cards mastered</p>
-            <p className="text-[10px] text-white/30">{stats.totalCards} total cards</p>
+      {/* Weekly Activity Chart */}
+      {weeklyTrends.some((w) => w.sessions > 0) && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} className="text-accent-light" />
+              <h2 className="text-sm font-medium text-white/60">Weekly Activity</h2>
+            </div>
+            <span className="text-[10px] text-white/30">
+              {weeklyTrends.reduce((s, w) => s + w.minutes, 0)} min total
+            </span>
+          </div>
+          <div className="flex items-end gap-1.5 h-16">
+            {weeklyTrends.map((week, i) => {
+              const maxS = Math.max(...weeklyTrends.map((w) => w.sessions), 1);
+              const pct = (week.sessions / maxS) * 100;
+              const isCurrent = i === weeklyTrends.length - 1;
+              return (
+                <div key={week.label} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex items-end justify-center" style={{ height: "48px" }}>
+                    <div
+                      className={cn(
+                        "w-full max-w-[20px] rounded-t-md transition-all",
+                        isCurrent ? "bg-accent" : "bg-white/10",
+                        week.sessions === 0 && "bg-white/5",
+                      )}
+                      style={{ height: `${Math.max(pct, 4)}%` }}
+                    />
+                  </div>
+                  <span className={cn("text-[7px]", isCurrent ? "text-accent-light" : "text-white/20")}>
+                    {week.label.split(" ")[0]}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* B2 Activation Meter */}
-      {b2Progress && (
+      {/* SRS Deck Health */}
+      {analytics.srs && analytics.srs.total > 0 && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Brain size={14} className="text-purple-400" />
+            <h2 className="text-sm font-medium text-white/60">SRS Deck</h2>
+          </div>
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <div>
+              <p className="text-lg font-bold text-accent-light">{analytics.srs.dueToday}</p>
+              <p className="text-[9px] text-white/30">due</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-success">{analytics.srs.mastered}</p>
+              <p className="text-[9px] text-white/30">mastered</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold">{analytics.srs.learning}</p>
+              <p className="text-[9px] text-white/30">learning</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-warn">{analytics.srs.lapsed}</p>
+              <p className="text-[9px] text-white/30">lapsed</p>
+            </div>
+          </div>
+          {analytics.srs.retentionRate > 0 && (
+            <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+              <span className="text-xs text-white/40">Retention:</span>
+              <span className={cn("text-xs font-medium", analytics.srs.retentionRate >= 80 ? "text-success" : analytics.srs.retentionRate >= 60 ? "text-warn" : "text-danger")}>
+                {analytics.srs.retentionRate}%
+              </span>
+              <span className="text-[10px] text-white/20">({analytics.srs.total} cards total)</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error Breakdown */}
+      {analytics.errorBreakdown && analytics.errorBreakdown.total > 0 && (
         <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
           <div className="flex items-center gap-2">
-            {b2Progress.unlocked ? (
-              <Unlock size={16} className="text-success" />
-            ) : (
-              <Lock size={16} className="text-warn" />
-            )}
+            <BookOpen size={14} className="text-warn" />
+            <h2 className="text-sm font-medium text-white/60">Error Patterns (30d)</h2>
+            <span className="ml-auto text-[10px] text-white/30">{analytics.errorBreakdown.total} total</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(analytics.errorBreakdown.byCategory)
+              .sort(([, a], [, b]) => b - a)
+              .map(([cat, count]) => (
+                <span key={cat} className="text-[10px] px-2 py-0.5 rounded-full bg-warn/10 text-warn/70">
+                  {cat} ({count})
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* B2 Activation */}
+      {b2 && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            {b2.unlocked ? <Unlock size={16} className="text-success" /> : <Lock size={16} className="text-warn" />}
             <h2 className="text-sm font-medium text-white/60">
-              {b2Progress.unlocked ? "B2 Unlocked!" : "B2 Activation"}
+              {b2.unlocked ? "B2 Unlocked!" : "B2 Activation"}
             </h2>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex-1 h-2 bg-white/5 rounded-full">
               <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-700",
-                  b2Progress.unlocked ? "bg-success" : "bg-warn",
-                )}
-                style={{
-                  width: `${Math.min(100, (b2Progress.mastered / b2Progress.threshold) * 100)}%`,
-                }}
+                className={cn("h-full rounded-full transition-all duration-700", b2.unlocked ? "bg-success" : "bg-warn")}
+                style={{ width: `${Math.min(100, b2.pct)}%` }}
               />
             </div>
-            <span className="text-xs text-white/40 tabular-nums whitespace-nowrap">
-              {b2Progress.mastered}/{b2Progress.total}
-            </span>
+            <span className="text-xs text-white/40 tabular-nums">{b2.mastered}/{b2.total}</span>
           </div>
           <p className="text-[10px] text-white/30">
-            {b2Progress.unlocked
-              ? "B2 content is now available in your exercises"
-              : `${b2Progress.threshold - b2Progress.mastered} more B1 skill${b2Progress.threshold - b2Progress.mastered === 1 ? "" : "s"} at rating 3+ to unlock B2`}
+            {b2.unlocked
+              ? "B2 content available"
+              : `${b2.remaining} more B1 skills at 3+ to unlock B2`}
           </p>
         </div>
       )}
 
-      {/* Recent Corrections */}
-      {corrections.total > 0 && (
+      {/* Category Strengths */}
+      {Object.keys(analytics.categoryStrengths).length > 0 && (
         <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-white/60">
-              Mistakes to learn from
-            </h2>
-            <span className="text-[10px] text-white/30">
-              {corrections.total} cards
-            </span>
+          <div className="flex items-center gap-2">
+            <Target size={14} className="text-accent-light" />
+            <h2 className="text-sm font-medium text-white/60">Skill Categories</h2>
           </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {Object.entries(corrections.byCategory).map(([cat, count]) => (
-              <span
-                key={cat}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-warn/10 text-warn/70"
-              >
-                {CATEGORY_LABELS[cat] || cat} ({count})
-              </span>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            {corrections.recent.map((card: AnyCard) => (
-              <div
-                key={card._id}
-                className="text-xs py-1.5 border-b border-white/5 last:border-0"
-              >
-                <p className="text-white/80">{card.it}</p>
-                <p className="text-white/40 mt-0.5">{card.en}</p>
+          {Object.entries(analytics.categoryStrengths)
+            .sort(([, a], [, b]) => a.avgRating - b.avgRating)
+            .map(([cat, data]) => (
+              <div key={cat} className="flex items-center gap-3">
+                <span className="text-xs text-white/50 w-20">{CAT_LABELS[cat] ?? cat}</span>
+                <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className={cn("h-full rounded-full", data.avgRating >= 3 ? "bg-success" : data.avgRating >= 2 ? "bg-accent" : data.avgRating >= 1 ? "bg-yellow-400" : "bg-warn")}
+                    style={{ width: `${(data.avgRating / 4) * 100}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-white/30 w-8 text-right">{data.avgRating}/4</span>
               </div>
             ))}
-          </div>
         </div>
       )}
 
-      {/* Milestone Progress */}
-      {Object.keys(groupedMilestones).length > 0 ? (
-        Object.entries(groupedMilestones).map(([category, skills]) => (
-          <div
-            key={category}
-            className="bg-card rounded-2xl border border-white/10 p-4 space-y-3"
-          >
-            <h2 className="text-sm font-medium text-white/60 capitalize">
-              {category}
-            </h2>
-            <div className="space-y-2">
-              {skills.map((skill) => (
-                <MilestoneBar
-                  key={skill.skillId}
-                  name={skill.name}
-                  rating={skill.rating}
-                  level={skill.level}
-                />
-              ))}
-            </div>
-          </div>
-        ))
-      ) : (
-        <div className="bg-card rounded-2xl border border-white/10 p-4 text-center">
-          <p className="text-white/40 text-sm">No skill milestones yet</p>
-          <p className="text-xs text-white/30 mt-1">
-            Milestones update as Marco analyzes your sessions.
-          </p>
+      {/* Recent Level-Ups */}
+      {analytics.recentLevelUps.length > 0 && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
+          <h2 className="text-sm font-medium text-white/60">🎯 Recently Improved</h2>
+          {analytics.recentLevelUps.map((skill) => (
+            <MilestoneBar key={skill.id} name={skill.name} rating={skill.rating} level={skill.level} />
+          ))}
         </div>
+      )}
+
+      {/* Full Skill Breakdown by Level */}
+      {Object.entries(groupedByLevel).length > 0 && (
+        <>
+          <h2 className="text-sm font-medium text-white/40 mt-2">All Skills</h2>
+          {["A1", "A2", "B1", "B2"].map((level) => {
+            const skills = groupedByLevel[level];
+            if (!skills?.length) return null;
+            const levelData = analytics.levels[level];
+            return (
+              <div key={level} className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={cn("w-2 h-2 rounded-full", LEVEL_COLORS[level] ?? "bg-white/20")} />
+                    <h3 className="text-sm font-medium">{level}</h3>
+                    <span className="text-[10px] text-white/30">{skills.length} skills</span>
+                  </div>
+                  {levelData && (
+                    <span className="text-[10px] text-white/30">
+                      {levelData.masteredPct}% mastered
+                    </span>
+                  )}
+                </div>
+                {/* Distribution chips */}
+                {levelData && (
+                  <div className="flex gap-1">
+                    {levelData.distribution.map((count, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <div
+                          className={cn(
+                            "h-1 rounded-full mx-0.5",
+                            i === 0 ? "bg-white/10" : i === 1 ? "bg-warn" : i === 2 ? "bg-yellow-400" : i === 3 ? "bg-accent" : "bg-success",
+                          )}
+                          style={{ opacity: count > 0 ? 1 : 0.2 }}
+                        />
+                        <span className="text-[8px] text-white/20">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  {skills.map((skill: { skillId: string; name: string; rating: number; level: string }) => (
+                    <MilestoneBar key={skill.skillId} name={skill.name} rating={skill.rating} level={skill.level} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </>
       )}
     </main>
   );
