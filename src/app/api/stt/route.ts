@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
     const audio = form.get("audio");
-    const language = String(form.get("language") || "it");
+    const language = "it";
 
     if (!(audio instanceof File)) {
       return NextResponse.json({ error: "Missing audio file" }, { status: 400 });
@@ -25,14 +25,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Audio too large (max 10MB)" }, { status: 400 });
     }
 
-    const result = await getOpenAI().audio.transcriptions.create({
-      model: "gpt-4o-mini-transcribe",
+    const transcribe = async (prompt?: string) =>
+      getOpenAI().audio.transcriptions.create({
+      model: "whisper-1",
       file: audio,
       language,
+      prompt,
       response_format: "text",
     });
 
-    const text = String(result || "").trim();
+    let text = String(await transcribe("Trascrizione in italiano. Non tradurre.") || "").trim();
+    if (/[\u0400-\u04FF]/.test(text)) {
+      text = String(await transcribe("Solo italiano. Ignora altre lingue e trascrivi foneticamente in italiano.") || "").trim();
+    }
     return NextResponse.json({ text });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";

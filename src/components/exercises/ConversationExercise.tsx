@@ -108,7 +108,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
   }, []);
 
   const playAssistantAudio = useCallback(
-    async (text: string) => {
+    async (text: string, userInitiated = false) => {
       if (!text.trim()) return;
       const requestId = ++ttsRequestIdRef.current;
       stopAudioPlayback();
@@ -153,7 +153,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         await audio.play();
       } catch {
         if (requestId !== ttsRequestIdRef.current) return;
-        if (typeof window !== "undefined" && window.speechSynthesis) {
+        if (userInitiated && typeof window !== "undefined" && window.speechSynthesis) {
           const u = new SpeechSynthesisUtterance(text);
           u.lang = "it-IT";
           u.rate = 0.92;
@@ -280,7 +280,14 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messages, c, usedPhrases, errors, finishConversation, playAssistantAudio],
+    [
+      messages,
+      c,
+      usedPhrases,
+      errors,
+      finishConversation,
+      playAssistantAudio,
+    ],
   );
 
   const stopMediaTracks = useCallback(() => {
@@ -515,7 +522,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-teal-300 text-xs font-medium">Marco</span>
                   <button
-                    onClick={() => void playAssistantAudio(msg.content)}
+                    onClick={() => void playAssistantAudio(msg.content, true)}
                     className="text-white/30 hover:text-teal-300 transition p-0.5"
                     aria-label="Play message audio"
                   >
@@ -592,7 +599,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         <div className="px-4 py-2 border-t border-white/5">
           <button
             type="button"
-            onClick={() => void playAssistantAudio(tapToPlayText)}
+            onClick={() => void playAssistantAudio(tapToPlayText, true)}
             className="w-full py-2 rounded-xl bg-teal-900/30 border border-teal-500/30 text-teal-200 text-sm hover:bg-teal-900/40 transition"
           >
             Tap to play assistant audio
@@ -650,7 +657,9 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         </button>
       </form>
 
-      {audioPending && <div className="px-4 pb-1 text-[11px] text-teal-300/70">Playing audio...</div>}
+      {audioPending && (
+        <div className="px-4 pb-1 text-[11px] text-teal-300/70">Playing audio...</div>
+      )}
 
       {messages.length >= 4 && (
         <div className="px-4 pb-3">
