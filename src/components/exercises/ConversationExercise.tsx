@@ -22,7 +22,12 @@ async function playTTS(text: string) {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
-    audio.play();
+    try {
+      await audio.play();
+    } catch {
+      URL.revokeObjectURL(url);
+      return;
+    }
     audio.onended = () => URL.revokeObjectURL(url);
   } catch {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -75,7 +80,6 @@ export default function ConversationExercise({ content, onComplete }: Props) {
       content: `Ciao! ${c.scenario}`,
     };
     setMessages([opening]);
-    playTTS(opening.content);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -360,8 +364,8 @@ export default function ConversationExercise({ content, onComplete }: Props) {
 
       {/* Target phrase chips */}
       {c.target_phrases.length > 0 && (
-        <div className="px-4 py-2 border-t border-white/5 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-1.5 pb-1">
+        <div className="px-4 py-2 border-t border-white/5">
+          <div className="flex flex-wrap gap-1.5 pb-1">
             {c.target_phrases.map((phrase) => {
               const used = usedPhrases.has(phrase);
               return (
@@ -369,7 +373,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
                   key={phrase}
                   onClick={() => !used && insertPhrase(phrase)}
                   className={cn(
-                    "px-2.5 py-1 rounded-full text-xs whitespace-nowrap transition border",
+                    "px-2.5 py-1 rounded-full text-xs whitespace-normal break-words max-w-full transition border",
                     used
                       ? "bg-success/20 border-success/30 text-success"
                       : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 active:scale-95",
