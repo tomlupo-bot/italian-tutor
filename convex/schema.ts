@@ -26,6 +26,7 @@ export default defineSchema({
   sessions: defineTable({
     date: v.string(),
     duration: v.number(), // seconds
+    lessonId: v.optional(v.string()), // backward compatibility with older session docs
     type: v.union(
       v.literal("lesson"),
       v.literal("quick_practice"),
