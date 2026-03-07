@@ -37,6 +37,12 @@ interface CatalogMission {
   };
 }
 
+const MODE_LABEL: Record<ExerciseMode, string> = {
+  quick: "Bronze",
+  standard: "Silver",
+  deep: "Gold",
+};
+
 export default function Home() {
   const router = useRouter();
   const today = getTodayWarsaw();
@@ -255,7 +261,7 @@ export default function Home() {
                 onClick={() => handleModeSelect(activeProgress.recommendedMode)}
                 className="px-4 py-2 rounded-xl text-sm font-medium bg-accent text-black"
               >
-                Continue active mission ({activeProgress.recommendedMode})
+                Continue active mission ({MODE_LABEL[activeProgress.recommendedMode]})
               </button>
             )}
           </>
