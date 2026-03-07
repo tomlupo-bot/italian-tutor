@@ -21,8 +21,8 @@ export default function BottomNav() {
     <>
     {/* Spacer to prevent content from being hidden behind fixed nav */}
     <div className={NAV_SPACER_CLASS} />
-    <nav className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur border-t border-white/5 z-50 pb-[env(safe-area-inset-bottom)]">
-      <div className="max-w-lg mx-auto flex items-center justify-around py-3">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur border-t border-white/5 z-50" style={{ paddingBottom: "calc(8px + env(safe-area-inset-bottom))", paddingTop: "8px" }}>
+      <div className="max-w-lg mx-auto flex items-center justify-around">
         {items.map((item) => {
           const active =
             pathname === item.href ||
@@ -34,7 +34,7 @@ export default function BottomNav() {
               href={item.href}
               aria-label={item.label}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition [-webkit-tap-highlight-color:transparent]",
+                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition [-webkit-tap-highlight-color:transparent]",
                 active ? "text-accent-light" : "text-white/40 hover:text-white/60"
               )}
             >
