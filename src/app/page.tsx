@@ -125,7 +125,7 @@ export default function Home() {
   }
 
   return (
-    <main className="max-w-lg mx-auto pb-20 px-4 py-4 flex flex-col gap-5">
+    <main className="max-w-lg mx-auto pb-28 px-4 py-4 flex flex-col gap-5">
       {/* Stats bar */}
       {stats && (
         <div className="flex items-center justify-center gap-6 py-1">
