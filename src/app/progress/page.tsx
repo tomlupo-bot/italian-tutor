@@ -41,6 +41,22 @@ const CAT_LABELS: Record<string, string> = {
   functional: "Functional",
 };
 
+const ERROR_CAT_LABELS: Record<string, string> = {
+  cloze: "Fill-in-the-blank",
+  word_order: "Word order",
+  grammar_pattern: "Grammar patterns",
+  translation: "Translation",
+  error_recognition: "Error spotting",
+  grammar: "Grammar",
+  vocab: "Vocabulary",
+  functional: "Functional",
+  unknown: "General",
+  other: "General",
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyCard = Record<string, any>;
+
 function TrendIcon({ trend }: { trend: string }) {
   if (trend === "up") return <TrendingUp size={14} className="text-success" />;
   if (trend === "down") return <TrendingDown size={14} className="text-warn" />;
@@ -52,6 +68,22 @@ export default function ProgressPage() {
   const stats = useQuery(api.sessions.getStats);
   const recentSessions = useQuery(api.sessions.listRecent, { limit: 200 });
   const milestones = useQuery(api.milestones.getAll);
+  const allCards = useQuery(api.cards.getAll) as AnyCard[] | undefined;
+
+  // Correction cards — recent mistakes to review
+  const corrections = useMemo(() => {
+    if (!allCards) return { recent: [] as AnyCard[], byCategory: {} as Record<string, number>, total: 0 };
+    const correctionCards = allCards.filter((c) => c.source === "correction");
+    const byCategory: Record<string, number> = {};
+    for (const c of correctionCards) {
+      const cat = c.errorCategory || "other";
+      byCategory[cat] = (byCategory[cat] ?? 0) + 1;
+    }
+    const recent = correctionCards
+      .sort((a, b) => (b._creationTime ?? 0) - (a._creationTime ?? 0))
+      .slice(0, 8);
+    return { recent, byCategory, total: correctionCards.length };
+  }, [allCards]);
 
   // Weekly activity chart (last 8 weeks)
   const weeklyTrends = useMemo(() => {
@@ -169,25 +201,22 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* Mode Completions */}
-      {Object.keys(analytics.modeBreakdown).length > 0 && (
-        <div className="flex gap-2">
-          {MODE_META.map(({ mode, emoji, color }) => {
-            const data = analytics.modeBreakdown[mode];
-            if (!data) return null;
-            return (
-              <div
-                key={mode}
-                className={`flex-1 rounded-xl border bg-gradient-to-br ${color} px-3 py-2.5 text-center`}
-              >
-                <span className="text-base">{emoji}</span>
-                <p className="text-sm font-semibold tabular-nums">{data.sessions}x</p>
-                <p className="text-[9px] text-white/30">avg {data.avgRating}/5</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Mode Completions — always show all three tiers */}
+      <div className="flex gap-2">
+        {MODE_META.map(({ mode, label, emoji, color }) => {
+          const data = analytics.modeBreakdown[mode];
+          return (
+            <div
+              key={mode}
+              className={`flex-1 rounded-xl border bg-gradient-to-br ${color} px-3 py-2.5 text-center ${!data ? "opacity-40" : ""}`}
+            >
+              <span className="text-base">{emoji}</span>
+              <p className="text-sm font-semibold tabular-nums">{data ? `${data.sessions}x` : "—"}</p>
+              <p className="text-[9px] text-white/30">{data ? `avg ${data.avgRating}/5` : label}</p>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Weekly Activity Chart */}
       {weeklyTrends.some((w) => w.sessions > 0) && (
@@ -265,22 +294,32 @@ export default function ProgressPage() {
         </div>
       )}
 
-      {/* Error Breakdown */}
-      {analytics.errorBreakdown && analytics.errorBreakdown.total > 0 && (
-        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <BookOpen size={14} className="text-warn" />
-            <h2 className="text-sm font-medium text-white/60">Error Patterns (30d)</h2>
-            <span className="ml-auto text-[10px] text-white/30">{analytics.errorBreakdown.total} total</span>
+      {/* Mistakes to Learn From — correction cards from SRS */}
+      {corrections.total > 0 && (
+        <div className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen size={14} className="text-warn" />
+              <h2 className="text-sm font-medium text-white/60">Mistakes to learn from</h2>
+            </div>
+            <span className="text-[10px] text-white/30">{corrections.total} cards</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {Object.entries(analytics.errorBreakdown.byCategory)
+            {Object.entries(corrections.byCategory)
               .sort(([, a], [, b]) => b - a)
               .map(([cat, count]) => (
                 <span key={cat} className="text-[10px] px-2 py-0.5 rounded-full bg-warn/10 text-warn/70">
-                  {cat} ({count})
+                  {ERROR_CAT_LABELS[cat] || cat} ({count})
                 </span>
               ))}
+          </div>
+          <div className="space-y-2">
+            {corrections.recent.map((card: AnyCard) => (
+              <div key={card._id} className="text-xs py-1.5 border-b border-white/5 last:border-0">
+                <p className="text-white/80">{card.it}</p>
+                <p className="text-white/40 mt-0.5">{card.en}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
