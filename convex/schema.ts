@@ -99,4 +99,184 @@ export default defineSchema({
     .index("by_level", ["level"])
     .index("by_category", ["category"]),
 
+  // ── Mission progression catalog (author-defined) ──────────────────
+  missionCatalog: defineTable({
+    missionId: v.string(), // stable slug-like ID
+    title: v.string(),
+    level: v.union(
+      v.literal("A1"),
+      v.literal("A2"),
+      v.literal("B1"),
+      v.literal("B2")
+    ),
+    order: v.number(),
+    required: v.boolean(),
+    summary: v.string(),
+    scenario: v.string(),
+    objective: v.string(),
+    tags: v.array(v.string()),
+    primarySkills: v.array(v.string()),
+    errorFocus: v.array(v.string()),
+    criticalErrorTypes: v.array(v.string()),
+    exerciseTargets: v.object({
+      bronzeReviews: v.number(),
+      silverDrills: v.number(),
+      goldConversations: v.number(),
+      silverAccuracyTarget: v.number(), // percentage
+      goldPhraseTarget: v.number(),
+    }),
+    exerciseMix: v.object({
+      srs: v.number(),
+      cloze: v.number(),
+      wordBuilder: v.number(),
+      patternDrill: v.number(),
+      speedTranslation: v.number(),
+      errorHunt: v.number(),
+      conversation: v.number(),
+      reflection: v.number(),
+    }),
+    passPolicy: v.object({
+      minCompositeScore: v.number(), // percentage
+      requireCriticalErrorsZero: v.boolean(),
+      checkpoint: v.string(),
+    }),
+    prerequisites: v.array(v.string()),
+    active: v.boolean(),
+  })
+    .index("by_mission_id", ["missionId"])
+    .index("by_level_order", ["level", "order"]),
+
+  skillTaxonomy: defineTable({
+    skillKey: v.string(),
+    label: v.string(),
+    domain: v.string(), // vocab|grammar|listening|speaking|reading|writing|pragmatics|task
+    description: v.string(),
+    levelBands: v.array(
+      v.union(
+        v.literal("A1"),
+        v.literal("A2"),
+        v.literal("B1"),
+        v.literal("B2")
+      )
+    ),
+    active: v.boolean(),
+  }).index("by_skill_key", ["skillKey"]),
+
+  errorTaxonomy: defineTable({
+    errorKey: v.string(),
+    label: v.string(),
+    description: v.string(),
+    category: v.string(), // lexical|grammar|syntax|pronunciation|listening|pragmatics|task
+    severity: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    active: v.boolean(),
+  }).index("by_error_key", ["errorKey"]),
+
+  levelRoadmaps: defineTable({
+    level: v.union(
+      v.literal("A1"),
+      v.literal("A2"),
+      v.literal("B1"),
+      v.literal("B2")
+    ),
+    nextLevel: v.optional(
+      v.union(v.literal("A2"), v.literal("B1"), v.literal("B2"))
+    ),
+    missionPool: v.array(v.string()),
+    requiredMissionIds: v.array(v.string()),
+    minCompletedMissions: v.number(),
+    minOptionalMissions: v.number(),
+    skillThresholds: v.array(
+      v.object({
+        skillKey: v.string(),
+        minPoints: v.number(),
+      })
+    ),
+    sessionMinimums: v.object({
+      bronze: v.number(),
+      silver: v.number(),
+      gold: v.number(),
+      minutes: v.number(),
+      activeDays: v.number(),
+    }),
+    finalCheckpointMissionId: v.optional(v.string()),
+  }).index("by_level", ["level"]),
+
+  // ── Mission progression (learner state) ───────────────────────────
+  userMissionProgress: defineTable({
+    learnerId: v.string(), // single-user app can default to "local"
+    missionId: v.string(),
+    level: v.union(
+      v.literal("A1"),
+      v.literal("A2"),
+      v.literal("B1"),
+      v.literal("B2")
+    ),
+    status: v.union(
+      v.literal("not_started"),
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("completed")
+    ),
+    active: v.boolean(),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    lastActivityDate: v.optional(v.string()),
+    credits: v.object({
+      bronze: v.number(),
+      silver: v.number(),
+      gold: v.number(),
+    }),
+    sessionsCompleted: v.number(),
+    totalScore: v.number(),
+    averageScore: v.number(),
+    criticalErrorsCount: v.number(),
+    skillPoints: v.array(
+      v.object({
+        skillKey: v.string(),
+        points: v.number(),
+      })
+    ),
+    errorCounts: v.array(
+      v.object({
+        errorKey: v.string(),
+        count: v.number(),
+      })
+    ),
+  })
+    .index("by_learner_mission", ["learnerId", "missionId"])
+    .index("by_learner_active", ["learnerId", "active"])
+    .index("by_learner_level", ["learnerId", "level"]),
+
+  userSkillProgress: defineTable({
+    learnerId: v.string(),
+    skillKey: v.string(),
+    points: v.number(),
+    confidence: v.number(), // 0..1
+    lastUpdated: v.number(),
+  })
+    .index("by_learner_skill", ["learnerId", "skillKey"])
+    .index("by_learner", ["learnerId"]),
+
+  userLevelProgress: defineTable({
+    learnerId: v.string(),
+    currentLevel: v.union(
+      v.literal("A1"),
+      v.literal("A2"),
+      v.literal("B1"),
+      v.literal("B2")
+    ),
+    unlockedLevels: v.array(
+      v.union(v.literal("A1"), v.literal("A2"), v.literal("B1"), v.literal("B2"))
+    ),
+    tierCredits: v.object({
+      bronze: v.number(),
+      silver: v.number(),
+      gold: v.number(),
+    }),
+    minutesTotal: v.number(),
+    activeDates: v.array(v.string()), // YYYY-MM-DD unique
+    completedMissionIds: v.array(v.string()),
+    updatedAt: v.number(),
+  }).index("by_learner", ["learnerId"]),
+
 });

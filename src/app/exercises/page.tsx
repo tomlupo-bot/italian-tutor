@@ -10,6 +10,7 @@ import { Loader2, RefreshCw, Target, Shuffle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { apiPath } from "@/lib/paths";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 type PracticeMode = "errors" | "random" | "typed";
 
@@ -25,6 +26,7 @@ const DRILL_TYPES: { type: string; label: string; emoji: string }[] = [
 ];
 
 export default function ExercisesPage() {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<PracticeMode | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -217,6 +219,13 @@ export default function ExercisesPage() {
   }, [results]);
 
   const availableCount = practiceExercises?.length ?? 0;
+
+  useEffect(() => {
+    if (mode) return;
+    if (searchParams.get("focus") === "recovery") {
+      startPractice("errors");
+    }
+  }, [mode, searchParams, startPractice]);
 
   // ── Mode selection screen ───────────────────────────────
   if (!mode || (exercises.length === 0 && !loading)) {

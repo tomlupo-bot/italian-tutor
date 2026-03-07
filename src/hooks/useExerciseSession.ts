@@ -49,6 +49,70 @@ interface CorrectionCard {
 }
 
 const TIER_KEY = "italian-tutor-tier-scores";
+const DRILL_TYPES = new Set(["cloze", "word_builder", "pattern_drill", "speed_translation", "error_hunt"]);
+const GOLD_TYPES = new Set(["conversation", "reflection"]);
+
+function mapExerciseTypeToSkills(type: Exercise["type"]): string[] {
+  switch (type) {
+    case "srs":
+      return ["vocab_core"];
+    case "cloze":
+      return ["grammar_forms", "grammar_syntax"];
+    case "word_builder":
+      return ["grammar_syntax", "writing_micro"];
+    case "pattern_drill":
+      return ["grammar_forms", "speaking_accuracy"];
+    case "speed_translation":
+      return ["vocab_core", "listening_literal"];
+    case "error_hunt":
+      return ["reading_comprehension", "grammar_syntax"];
+    case "conversation":
+      return ["speaking_fluency", "speaking_accuracy", "pragmatics", "task_completion"];
+    case "reflection":
+      return ["writing_micro", "task_completion"];
+    default:
+      return ["task_completion"];
+  }
+}
+
+function mapErrorCategoryToKey(category?: string): string {
+  switch (category) {
+    case "cloze":
+      return "verb_conjugation";
+    case "word_order":
+      return "word_order";
+    case "grammar_pattern":
+      return "verb_tense";
+    case "translation":
+      return "lexical_choice";
+    case "error_recognition":
+      return "agreement";
+    case "conversation":
+      return "incomplete_response";
+    default:
+      return "instruction_misread";
+  }
+}
+
+function resultScore(result: ExerciseResult): number {
+  if ("correct" in result && typeof (result as { correct: boolean }).correct === "boolean") {
+    return (result as { correct: boolean }).correct ? 1 : 0;
+  }
+  if ("scores" in result && Array.isArray((result as { scores: boolean[] }).scores)) {
+    const scores = (result as { scores: boolean[] }).scores;
+    if (scores.length === 0) return 0.5;
+    const ok = scores.filter(Boolean).length;
+    return ok / scores.length;
+  }
+  if ("total_correct" in result && typeof (result as { total_correct: number }).total_correct === "number") {
+    const total = Math.max(1, (result as { answers?: number[] }).answers?.length ?? 10);
+    return Math.max(0, Math.min(1, (result as { total_correct: number }).total_correct / total));
+  }
+  if ("rating" in result && typeof (result as { rating: number }).rating === "number") {
+    return Math.max(0, Math.min(1, (result as { rating: number }).rating / 5));
+  }
+  return 0.5;
+}
 
 function persistTierScore(date: string, mode: ExerciseMode, scorePercent: number) {
   if (typeof window === "undefined") return;
@@ -249,6 +313,7 @@ export function useExerciseSession({
   const markComplete = useMutation(api.exercises.markComplete);
   const bulkAddCards = useMutation(api.cards.bulkAdd);
   const updateCardExplanation = useMutation(api.cards.updateExplanation);
+  const recordMissionCompletion = useMutation(api.missions.recordLessonCompletion);
 
   const startedAt = useRef(Date.now());
   const [current, setCurrent] = useState(0);
@@ -445,6 +510,56 @@ export function useExerciseSession({
             errors: sessionErrors,
           });
           persistTierScore(sessionDate, mode, Math.round(pct * 100));
+
+          // Mission progression update (non-blocking but awaited to keep state consistent)
+          const skillMap = new Map<string, number>();
+          let bronzeCredit = 0;
+          let silverCredit = 0;
+          let goldCredit = 0;
+          for (const ex of exercises) {
+            const r = allResults.get(ex._id);
+            if (!r) continue;
+            const score = resultScore(r);
+            const points = Math.max(1, Math.round(score * 10));
+            for (const skill of mapExerciseTypeToSkills(ex.type)) {
+              skillMap.set(skill, (skillMap.get(skill) ?? 0) + points);
+            }
+            if (ex.type === "srs") bronzeCredit += 1;
+            if (DRILL_TYPES.has(ex.type)) silverCredit += 1;
+            if (GOLD_TYPES.has(ex.type)) goldCredit += 1;
+          }
+
+          const errorMap = new Map<string, number>();
+          for (const err of sessionErrors) {
+            const key = mapErrorCategoryToKey(err.category);
+            errorMap.set(key, (errorMap.get(key) ?? 0) + 1);
+          }
+
+          const criticalErrors = ["off_topic", "incomplete_response", "dosage_misunderstood", "negation_reversal", "instruction_misread"]
+            .reduce((sum, key) => sum + (errorMap.get(key) ?? 0), 0);
+
+          try {
+            await recordMissionCompletion({
+              sessionDate,
+              scorePercent: Math.round(pct * 100),
+              bronzeCredit,
+              silverCredit,
+              goldCredit,
+              minutes: totalMinutes,
+              criticalErrors,
+              confidenceWeight: Math.min(1, Math.max(0.25, allResults.size / 20)),
+              skillDeltas: Array.from(skillMap.entries()).map(([skillKey, points]) => ({
+                skillKey,
+                points,
+              })),
+              errorDeltas: Array.from(errorMap.entries()).map(([errorKey, count]) => ({
+                errorKey,
+                count,
+              })),
+            });
+          } catch {
+            // non-critical
+          }
 
           // Extract correction cards from wrong answers and add to SRS deck
           const correctionCards = extractCorrectionCards(exercises, allResults);

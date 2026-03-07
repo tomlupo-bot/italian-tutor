@@ -4,13 +4,39 @@ import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import Link from "next/link";
-import { Flame, Trophy, Zap, BarChart3, Loader2 } from "lucide-react";
+import { Flame, Trophy, Zap, BarChart3, Loader2, Flag } from "lucide-react";
 import { getTodayWarsaw } from "../lib/date";
 import ModeSelector from "../components/ModeSelector";
 import SkillsWidget from "../components/SkillsWidget";
 import { useRouter } from "next/navigation";
 import type { ExerciseMode } from "@/lib/exerciseTypes";
 import { getWeekWindow, getWeeklyMission } from "@/lib/weeklyMission";
+
+interface ActiveMissionResult {
+  missionId: string;
+  level: "A1" | "A2" | "B1" | "B2";
+  status: "not_started" | "active" | "paused" | "completed";
+  title: string;
+  summary: string;
+}
+
+interface LearnerMission {
+  missionId: string;
+  active: boolean;
+  status: "not_started" | "active" | "paused" | "completed";
+  credits: { bronze: number; silver: number; gold: number };
+  criticalErrorsCount?: number;
+}
+
+interface CatalogMission {
+  missionId: string;
+  title: string;
+  exerciseTargets: {
+    bronzeReviews: number;
+    silverDrills: number;
+    goldConversations: number;
+  };
+}
 
 export default function Home() {
   const router = useRouter();
@@ -21,6 +47,13 @@ export default function Home() {
   const todayExercises = useQuery(api.exercises.getByDate, { date: today });
   const milestones = useQuery(api.milestones.getAll);
   const recentSessions = useQuery(api.sessions.listRecent, { limit: 120 });
+  const activeMission = useQuery(api.missions.getActiveMission, {}) as ActiveMissionResult | null | undefined;
+  const learnerProgress = useQuery(api.missions.getLearnerProgress, {}) as
+    | { missions: LearnerMission[] }
+    | undefined;
+  const catalog = useQuery(api.missions.listCatalog, {}) as
+    | { missions: CatalogMission[] }
+    | undefined;
   const weekMission = useMemo(() => getWeeklyMission(today), [today]);
   const weekWindow = useMemo(() => getWeekWindow(today), [today]);
 
@@ -51,6 +84,24 @@ export default function Home() {
       (s) => s.date >= weekWindow.monday && s.date <= weekWindow.sunday,
     ).length;
   }, [recentSessions, weekWindow.monday, weekWindow.sunday]);
+
+  const activeProgress = useMemo(() => {
+    const active = learnerProgress?.missions?.find((m) => m.active);
+    if (!active) return null;
+    const mission = catalog?.missions?.find((m) => m.missionId === active.missionId);
+    if (!mission) return { active, mission: null, recommendedMode: "standard" as ExerciseMode, blocker: false };
+    const bronzeMissing = mission.exerciseTargets.bronzeReviews - (active.credits?.bronze ?? 0);
+    const silverMissing = mission.exerciseTargets.silverDrills - (active.credits?.silver ?? 0);
+    const goldMissing = mission.exerciseTargets.goldConversations - (active.credits?.gold ?? 0);
+    const recommendedMode: ExerciseMode =
+      goldMissing > 0 ? "deep" : silverMissing > 0 ? "standard" : bronzeMissing > 0 ? "quick" : "standard";
+    return {
+      active,
+      mission,
+      recommendedMode,
+      blocker: (active.criticalErrorsCount ?? 0) > 0,
+    };
+  }, [learnerProgress?.missions, catalog?.missions]);
 
   const handleModeSelect = (mode: ExerciseMode) => {
     // Bronze with no SRS exercises but due cards → go to SRS practice
@@ -188,6 +239,54 @@ export default function Home() {
           </div>
         </div>
         <p className="text-[11px] text-white/45">{weekMission.objective}</p>
+        <div className="pt-2 border-t border-white/10">
+          <Link href="/missions" className="text-xs text-accent-light inline-flex items-center gap-1.5">
+            <Flag size={12} />
+            {activeMission?.title
+              ? `Active campaign mission: ${activeMission.title}`
+              : "Open Mission Hub"}
+          </Link>
+        </div>
+      </div>
+
+      {/* Primary campaign CTA */}
+      <div className="bg-card rounded-2xl border border-accent/20 p-4 space-y-2">
+        <p className="text-[11px] text-accent-light uppercase tracking-wider">Next Action</p>
+        {activeProgress?.mission ? (
+          <>
+            <p className="text-sm font-semibold">{activeProgress.mission.title}</p>
+            <p className="text-xs text-white/45">
+              Bronze {activeProgress.active.credits.bronze}/{activeProgress.mission.exerciseTargets.bronzeReviews} ·
+              Silver {activeProgress.active.credits.silver}/{activeProgress.mission.exerciseTargets.silverDrills} ·
+              Gold {activeProgress.active.credits.gold}/{activeProgress.mission.exerciseTargets.goldConversations}
+            </p>
+            {activeProgress.blocker ? (
+              <Link
+                href="/exercises?focus=recovery"
+                className="inline-block px-4 py-2 rounded-xl text-sm font-medium bg-warn/20 text-warn border border-warn/30"
+              >
+                Run recovery session
+              </Link>
+            ) : (
+              <button
+                onClick={() => handleModeSelect(activeProgress.recommendedMode)}
+                className="px-4 py-2 rounded-xl text-sm font-medium bg-accent text-black"
+              >
+                Continue active mission ({activeProgress.recommendedMode})
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-semibold">No active mission</p>
+            <Link
+              href="/missions"
+              className="inline-block px-4 py-2 rounded-xl text-sm font-medium bg-accent/20 text-accent-light border border-accent/30"
+            >
+              Open Mission Hub
+            </Link>
+          </>
+        )}
       </div>
 
       {/* Mode selector or fallback */}
@@ -217,7 +316,7 @@ export default function Home() {
       <SkillsWidget />
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Link href="/practice">
           <div className="bg-card rounded-xl border border-white/10 p-4 hover:border-white/20 transition">
             <Zap size={20} className="text-yellow-400 mb-2" />
@@ -235,6 +334,15 @@ export default function Home() {
             <h3 className="text-sm font-medium">Progress</h3>
             <p className="text-xs text-white/40 mt-0.5">
               {stats ? `${stats.totalSessions} sessions` : "View stats"}
+            </p>
+          </div>
+        </Link>
+        <Link href="/missions">
+          <div className="bg-card rounded-xl border border-white/10 p-4 hover:border-white/20 transition">
+            <Flag size={20} className="text-accent-light mb-2" />
+            <h3 className="text-sm font-medium">Missions</h3>
+            <p className="text-xs text-white/40 mt-0.5">
+              Campaign hub
             </p>
           </div>
         </Link>

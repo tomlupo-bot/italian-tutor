@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ExerciseMode } from "@/lib/exerciseTypes";
+import Link from "next/link";
 
 interface SessionSummaryProps {
   mode: ExerciseMode;
@@ -41,6 +42,34 @@ interface Milestone {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyCard = Record<string, any>;
 
+type Level = "A1" | "A2" | "B1" | "B2";
+type MissionStatus = "not_started" | "active" | "paused" | "completed";
+
+interface CatalogMission {
+  missionId: string;
+  level: Level;
+  required: boolean;
+}
+
+interface LearnerMission {
+  missionId: string;
+  status: MissionStatus;
+  active: boolean;
+  criticalErrorsCount?: number;
+}
+
+interface LearnerLevel {
+  currentLevel: Level;
+  unlockedLevels: Level[];
+}
+
+interface ActiveMission {
+  missionId: string;
+  level: Level;
+  status: MissionStatus;
+  title: string;
+}
+
 export default function SessionSummary({
   mode,
   exercisesCompleted,
@@ -51,6 +80,13 @@ export default function SessionSummary({
   const milestones = useQuery(api.milestones.getAll) as Milestone[] | undefined;
   const allCards = useQuery(api.cards.getAll) as AnyCard[] | undefined;
   const recentSessions = useQuery(api.sessions.listRecent, { limit: 30 });
+  const activeMission = useQuery(api.missions.getActiveMission, {}) as ActiveMission | null | undefined;
+  const learnerProgress = useQuery(api.missions.getLearnerProgress, {}) as
+    | { missions: LearnerMission[]; level?: LearnerLevel | null }
+    | undefined;
+  const missionCatalog = useQuery(api.missions.listCatalog, {}) as
+    | { missions: CatalogMission[] }
+    | undefined;
 
   // ── SRS cards created this session ────────────────────────────────
   const newCorrectionCards = useMemo(() => {
@@ -111,6 +147,16 @@ export default function SessionSummary({
   // ── Session score ─────────────────────────────────────────────────
   const accuracy = exercisesCompleted > 0 ? Math.round((correctCount / exercisesCompleted) * 100) : 0;
   const modeInfo = MODE_LABELS[mode] ?? { label: mode, emoji: "📝" };
+  const levelMissionStats = useMemo(() => {
+    const level = learnerProgress?.level?.currentLevel;
+    if (!level || !missionCatalog?.missions) return null;
+    const total = missionCatalog.missions.filter((m) => m.level === level).length;
+    if (total === 0) return null;
+    const done = (learnerProgress?.missions ?? []).filter(
+      (m) => m.status === "completed" && missionCatalog.missions.some((c) => c.missionId === m.missionId && c.level === level),
+    ).length;
+    return { level, done, total, pct: Math.round((done / total) * 100) };
+  }, [learnerProgress?.level?.currentLevel, learnerProgress?.missions, missionCatalog?.missions]);
 
   return (
     <div className="w-full space-y-3">
@@ -182,6 +228,45 @@ export default function SessionSummary({
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Mission Loop */}
+      {(activeMission || levelMissionStats) && (
+        <div className="bg-card rounded-xl border border-white/10 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Target size={14} className="text-accent-light" />
+            <span className="text-xs font-medium text-white/60">Campaign Feedback</span>
+          </div>
+          {activeMission && (
+            <p className="text-xs text-white/70">
+              Active: <span className="text-accent-light">{activeMission.title}</span>
+            </p>
+          )}
+          {(learnerProgress?.missions?.find((m) => m.active)?.criticalErrorsCount ?? 0) > 0 && (
+            <Link
+              href="/exercises?focus=recovery"
+              className="inline-block px-3 py-1.5 rounded-lg text-xs font-medium border border-warn/30 bg-warn/20 text-warn"
+            >
+              Recovery session recommended
+            </Link>
+          )}
+          {levelMissionStats && (
+            <>
+              <div className="flex items-center justify-between text-[11px] text-white/45">
+                <span>{levelMissionStats.level} mission completion</span>
+                <span>
+                  {levelMissionStats.done}/{levelMissionStats.total}
+                </span>
+              </div>
+              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent rounded-full transition-all duration-700"
+                  style={{ width: `${levelMissionStats.pct}%` }}
+                />
+              </div>
+            </>
           )}
         </div>
       )}
