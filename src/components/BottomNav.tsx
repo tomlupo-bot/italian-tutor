@@ -16,7 +16,7 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-shrink-0 bg-card/90 backdrop-blur border-t border-white/5 pb-[env(safe-area-inset-bottom)]">
+    <nav className="flex-shrink-0 bg-card/90 backdrop-blur border-t border-white/5">
       <div className="max-w-lg mx-auto flex items-center justify-around py-3">
         {items.map((item) => {
           const active =
