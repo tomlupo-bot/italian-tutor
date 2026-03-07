@@ -1,5 +1,13 @@
 export type CefrLevel = "A1" | "A2" | "B1" | "B2";
 
+export interface MissionCheckpoint {
+  id: string;
+  title: string;
+  description: string;
+  required: boolean;
+  minScore: number;
+}
+
 export interface MissionTemplate {
   missionId: string;
   title: string;
@@ -35,6 +43,7 @@ export interface MissionTemplate {
     requireCriticalErrorsZero: boolean;
     checkpoint: string;
   };
+  checkpoints?: MissionCheckpoint[];
   prerequisites: string[];
   active: boolean;
 }

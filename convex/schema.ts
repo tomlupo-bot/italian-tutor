@@ -141,6 +141,17 @@ export default defineSchema({
       requireCriticalErrorsZero: v.boolean(),
       checkpoint: v.string(),
     }),
+    checkpoints: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          description: v.string(),
+          required: v.boolean(),
+          minScore: v.number(),
+        })
+      )
+    ),
     prerequisites: v.array(v.string()),
     active: v.boolean(),
   })
@@ -242,6 +253,16 @@ export default defineSchema({
         errorKey: v.string(),
         count: v.number(),
       })
+    ),
+    completedCheckpointIds: v.optional(v.array(v.string())),
+    sessionSignatures: v.optional(
+      v.array(
+        v.object({
+          date: v.string(),
+          signature: v.string(),
+          count: v.number(),
+        })
+      )
     ),
   })
     .index("by_learner_mission", ["learnerId", "missionId"])

@@ -52,6 +52,18 @@ const TIER_KEY = "italian-tutor-tier-scores";
 const DRILL_TYPES = new Set(["cloze", "word_builder", "pattern_drill", "speed_translation", "error_hunt"]);
 const GOLD_TYPES = new Set(["conversation", "reflection"]);
 
+function buildSessionSignature(exercises: Exercise[], mode: ExerciseMode): string {
+  const typeCounts = new Map<string, number>();
+  for (const ex of exercises) {
+    typeCounts.set(ex.type, (typeCounts.get(ex.type) ?? 0) + 1);
+  }
+  const fingerprint = Array.from(typeCounts.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([type, count]) => `${type}:${count}`)
+    .join("|");
+  return `${mode}|${fingerprint || "empty"}`;
+}
+
 function mapExerciseTypeToSkills(type: Exercise["type"]): string[] {
   switch (type) {
     case "srs":
@@ -539,6 +551,7 @@ export function useExerciseSession({
             .reduce((sum, key) => sum + (errorMap.get(key) ?? 0), 0);
 
           try {
+            const sessionSignature = buildSessionSignature(exercises, mode);
             await recordMissionCompletion({
               sessionDate,
               scorePercent: Math.round(pct * 100),
@@ -546,6 +559,7 @@ export function useExerciseSession({
               silverCredit,
               goldCredit,
               minutes: totalMinutes,
+              sessionSignature,
               criticalErrors,
               confidenceWeight: Math.min(1, Math.max(0.25, allResults.size / 20)),
               skillDeltas: Array.from(skillMap.entries()).map(([skillKey, points]) => ({
@@ -594,6 +608,7 @@ export function useExerciseSession({
       saveSession,
       bulkAddCards,
       updateCardExplanation,
+      recordMissionCompletion,
       mode,
       date,
       sessionErrors,

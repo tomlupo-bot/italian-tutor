@@ -23,6 +23,7 @@ interface DayInfo {
   day: number;
   status: DayStatus;
   hasExercises: boolean;
+  sessionCount: number;
 }
 
 export default function CalendarPage() {
@@ -59,11 +60,14 @@ export default function CalendarPage() {
 
   // Completed modes per date (from sessions)
   const completedModes = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
+    const map: Record<string, { quick: number; standard: number; deep: number; total: number }> = {};
     if (sessions) {
       for (const s of sessions) {
-        if (!map[s.date]) map[s.date] = new Set();
-        if (s.mode) map[s.date].add(s.mode);
+        if (!map[s.date]) map[s.date] = { quick: 0, standard: 0, deep: 0, total: 0 };
+        if (s.mode === "quick") map[s.date].quick += 1;
+        if (s.mode === "standard") map[s.date].standard += 1;
+        if (s.mode === "deep") map[s.date].deep += 1;
+        map[s.date].total += 1;
       }
     }
     return map;
@@ -74,10 +78,10 @@ export default function CalendarPage() {
     if (isFuture && !hasExercises) return "future";
     if (!hasExercises) return "empty";
     const modes = completedModes[date];
-    if (!modes || modes.size === 0) return "ready";
-    if (modes.has("deep")) return "gold";
-    if (modes.has("standard")) return "silver";
-    if (modes.has("quick")) return "bronze";
+    if (!modes || modes.total === 0) return "ready";
+    if (modes.deep > 0) return "gold";
+    if (modes.standard > 0) return "silver";
+    if (modes.quick > 0) return "bronze";
     return "ready";
   }
 
@@ -95,6 +99,7 @@ export default function CalendarPage() {
         day: d,
         status: getTierStatus(date, hasExercises, isFuture),
         hasExercises,
+        sessionCount: completedModes[date]?.total ?? 0,
       });
     }
     return result;
@@ -190,6 +195,11 @@ export default function CalendarPage() {
                 )}
               >
                 {day.day}
+                {day.sessionCount > 1 && (
+                  <span className="absolute -bottom-0.5 -right-0.5 min-w-3 h-3 px-0.5 rounded-full bg-white/15 text-[8px] leading-3 text-white/80">
+                    {day.sessionCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -210,6 +220,11 @@ export default function CalendarPage() {
           <p className="text-xs text-white/30 text-center">
             {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
           </p>
+          {(completedModes[selectedDate]?.total ?? 0) > 0 && (
+            <div className="bg-card rounded-xl border border-white/10 p-2.5 text-[11px] text-white/45 text-center">
+              Sessions: Bronze {completedModes[selectedDate]?.quick ?? 0} · Silver {completedModes[selectedDate]?.standard ?? 0} · Gold {completedModes[selectedDate]?.deep ?? 0}
+            </div>
+          )}
 
           {selectedHasExercises ? (
             <ModeSelector

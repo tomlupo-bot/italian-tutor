@@ -24,6 +24,7 @@ interface CatalogMission {
   required: boolean;
   title: string;
   summary: string;
+  checkpoints?: Array<{ id: string; required: boolean }>;
   exerciseTargets: {
     bronzeReviews: number;
     silverDrills: number;
@@ -38,6 +39,7 @@ interface LearnerMission {
   credits: { bronze: number; silver: number; gold: number };
   criticalErrorsCount?: number;
   averageScore?: number;
+  completedCheckpointIds?: string[];
 }
 
 interface LearnerLevel {
@@ -343,6 +345,10 @@ export default function MissionsPage() {
                 const bronze = progress?.credits?.bronze ?? 0;
                 const silver = progress?.credits?.silver ?? 0;
                 const gold = progress?.credits?.gold ?? 0;
+                const requiredCheckpointTotal = (mission.checkpoints ?? []).filter((cp) => cp.required).length;
+                const completedCheckpointCount = (progress?.completedCheckpointIds ?? []).filter((id) =>
+                  (mission.checkpoints ?? []).some((cp) => cp.required && cp.id === id),
+                ).length;
 
                 return (
                   <div
@@ -375,6 +381,9 @@ export default function MissionsPage() {
                       <p>Bronze {bronze}/{mission.exerciseTargets.bronzeReviews}</p>
                       <p>Silver {silver}/{mission.exerciseTargets.silverDrills}</p>
                       <p>Gold {gold}/{mission.exerciseTargets.goldConversations}</p>
+                      {requiredCheckpointTotal > 0 && (
+                        <p>Checkpoints {completedCheckpointCount}/{requiredCheckpointTotal}</p>
+                      )}
                     </div>
 
                     <div className="mt-3 flex items-center gap-2">

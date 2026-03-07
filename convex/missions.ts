@@ -6,6 +6,7 @@ import {
   MISSIONS,
   SKILL_TAXONOMY,
   type CefrLevel,
+  type MissionCheckpoint,
 } from "./progressionCatalog";
 
 function mergeCounterList(
@@ -60,6 +61,43 @@ function levelRank(level: CefrLevel): number {
   return 4;
 }
 
+function defaultMissionCheckpoints(mission: {
+  missionId: string;
+  objective: string;
+  passPolicy: { minCompositeScore: number; checkpoint: string };
+}): MissionCheckpoint[] {
+  return [
+    {
+      id: `${mission.missionId}:briefing`,
+      title: "Mission Briefing",
+      description: "Establish context and confirm constraints before acting.",
+      required: true,
+      minScore: Math.max(55, mission.passPolicy.minCompositeScore - 20),
+    },
+    {
+      id: `${mission.missionId}:execution`,
+      title: "Core Execution",
+      description: mission.objective,
+      required: true,
+      minScore: Math.max(60, mission.passPolicy.minCompositeScore - 15),
+    },
+    {
+      id: `${mission.missionId}:recovery`,
+      title: "Recovery Under Pressure",
+      description: "Handle an unexpected problem without switching language.",
+      required: false,
+      minScore: Math.max(60, mission.passPolicy.minCompositeScore - 15),
+    },
+    {
+      id: `${mission.missionId}:finale`,
+      title: "Final Checkpoint",
+      description: mission.passPolicy.checkpoint,
+      required: true,
+      minScore: mission.passPolicy.minCompositeScore,
+    },
+  ];
+}
+
 export const seedCatalog = mutation({
   args: {},
   handler: async (ctx) => {
@@ -73,16 +111,20 @@ export const seedCatalog = mutation({
     let roadmapsUpdated = 0;
 
     for (const mission of MISSIONS) {
+      const payload = {
+        ...mission,
+        checkpoints: mission.checkpoints ?? defaultMissionCheckpoints(mission),
+      };
       const existing = await ctx.db
         .query("missionCatalog")
         .withIndex("by_mission_id", (q) => q.eq("missionId", mission.missionId))
         .first();
 
       if (existing) {
-        await ctx.db.patch(existing._id, mission);
+        await ctx.db.patch(existing._id, payload);
         missionsUpdated++;
       } else {
-        await ctx.db.insert("missionCatalog", mission);
+        await ctx.db.insert("missionCatalog", payload);
         missionsInserted++;
       }
     }
@@ -228,6 +270,8 @@ export const setActiveMission = mutation({
         criticalErrorsCount: existing.criticalErrorsCount ?? 0,
         skillPoints: existing.skillPoints ?? [],
         errorCounts: existing.errorCounts ?? [],
+        completedCheckpointIds: existing.completedCheckpointIds ?? [],
+        sessionSignatures: existing.sessionSignatures ?? [],
       });
       return { status: "updated" as const };
     }
@@ -246,6 +290,8 @@ export const setActiveMission = mutation({
       criticalErrorsCount: 0,
       skillPoints: [],
       errorCounts: [],
+      completedCheckpointIds: [],
+      sessionSignatures: [],
     });
 
     return { status: "created" as const };
@@ -323,6 +369,7 @@ export const recordLessonCompletion = mutation({
     silverCredit: v.number(),
     goldCredit: v.number(),
     minutes: v.number(),
+    sessionSignature: v.optional(v.string()),
     criticalErrors: v.optional(v.number()),
     confidenceWeight: v.optional(v.number()),
     skillDeltas: v.optional(
@@ -365,18 +412,43 @@ export const recordLessonCompletion = mutation({
       throw new Error("No active mission. Set one before recording lessons.");
     }
 
-    const mission = await ctx.db
+    const missionRow = await ctx.db
       .query("missionCatalog")
       .withIndex("by_mission_id", (q) => q.eq("missionId", missionProgress.missionId))
       .first();
 
-    if (!mission) throw new Error("Mission catalog entry missing");
+    if (!missionRow) throw new Error("Mission catalog entry missing");
+
+    const mission = {
+      ...missionRow,
+      checkpoints: missionRow.checkpoints ?? defaultMissionCheckpoints(missionRow),
+    };
 
     const baseCredits = missionProgress.credits ?? { bronze: 0, silver: 0, gold: 0 };
+    const qualityMultiplier =
+      args.scorePercent >= mission.passPolicy.minCompositeScore
+        ? 1
+        : args.scorePercent >= Math.max(55, mission.passPolicy.minCompositeScore - 10)
+          ? 0.7
+          : 0.4;
+    const currentSignatures = missionProgress.sessionSignatures ?? [];
+    const signature = args.sessionSignature ?? "unknown";
+    const sigIdx = currentSignatures.findIndex(
+      (row) => row.date === args.sessionDate && row.signature === signature
+    );
+    const duplicateSameDay = sigIdx >= 0 && currentSignatures[sigIdx].count > 0;
+    const antiFarmMultiplier = duplicateSameDay ? 0.35 : 1;
+    const creditMultiplier = qualityMultiplier * antiFarmMultiplier;
+    const appliedBronzeCredit =
+      args.bronzeCredit > 0 ? Math.max(0, Math.round(args.bronzeCredit * creditMultiplier)) : 0;
+    const appliedSilverCredit =
+      args.silverCredit > 0 ? Math.max(0, Math.round(args.silverCredit * creditMultiplier)) : 0;
+    const appliedGoldCredit =
+      args.goldCredit > 0 ? Math.max(0, Math.round(args.goldCredit * creditMultiplier)) : 0;
     const nextCredits = {
-      bronze: baseCredits.bronze + args.bronzeCredit,
-      silver: baseCredits.silver + args.silverCredit,
-      gold: baseCredits.gold + args.goldCredit,
+      bronze: baseCredits.bronze + appliedBronzeCredit,
+      silver: baseCredits.silver + appliedSilverCredit,
+      gold: baseCredits.gold + appliedGoldCredit,
     };
 
     const nextSessions = (missionProgress.sessionsCompleted ?? 0) + 1;
@@ -397,10 +469,35 @@ export const recordLessonCompletion = mutation({
       count: x.count,
     }));
 
+    const completedCheckpointIds = missionProgress.completedCheckpointIds ?? [];
+    let nextCompletedCheckpointIds = completedCheckpointIds;
+    let checkpointAwardedId: string | null = null;
+    const nextCheckpoint = mission.checkpoints.find((cp) => !completedCheckpointIds.includes(cp.id));
+    if (
+      nextCheckpoint &&
+      !duplicateSameDay &&
+      args.scorePercent >= nextCheckpoint.minScore
+    ) {
+      nextCompletedCheckpointIds = [...completedCheckpointIds, nextCheckpoint.id];
+      checkpointAwardedId = nextCheckpoint.id;
+    }
+    const requiredCheckpointIds = mission.checkpoints.filter((cp) => cp.required).map((cp) => cp.id);
+    const checkpointsDone =
+      requiredCheckpointIds.length === 0 ||
+      requiredCheckpointIds.every((id) => nextCompletedCheckpointIds.includes(id));
+
+    const nextSessionSignatures =
+      sigIdx >= 0
+        ? currentSignatures.map((row, i) =>
+            i === sigIdx ? { ...row, count: row.count + 1 } : row
+          )
+        : [...currentSignatures, { date: args.sessionDate, signature, count: 1 }];
+
     const missionCompleted =
       nextCredits.bronze >= mission.exerciseTargets.bronzeReviews &&
       nextCredits.silver >= mission.exerciseTargets.silverDrills &&
       nextCredits.gold >= mission.exerciseTargets.goldConversations &&
+      checkpointsDone &&
       nextAverage >= mission.passPolicy.minCompositeScore &&
       (!mission.passPolicy.requireCriticalErrorsZero || (missionProgress.criticalErrorsCount ?? 0) + criticalErrors === 0);
 
@@ -416,6 +513,8 @@ export const recordLessonCompletion = mutation({
       criticalErrorsCount: (missionProgress.criticalErrorsCount ?? 0) + criticalErrors,
       skillPoints: mergedSkillPairs,
       errorCounts: mergedErrorPairs,
+      completedCheckpointIds: nextCompletedCheckpointIds,
+      sessionSignatures: nextSessionSignatures.slice(-40),
     });
 
     for (const delta of args.skillDeltas ?? []) {
@@ -456,9 +555,9 @@ export const recordLessonCompletion = mutation({
 
     await ctx.db.patch(levelState._id, {
       tierCredits: {
-        bronze: levelState.tierCredits.bronze + args.bronzeCredit,
-        silver: levelState.tierCredits.silver + args.silverCredit,
-        gold: levelState.tierCredits.gold + args.goldCredit,
+        bronze: levelState.tierCredits.bronze + appliedBronzeCredit,
+        silver: levelState.tierCredits.silver + appliedSilverCredit,
+        gold: levelState.tierCredits.gold + appliedGoldCredit,
       },
       minutesTotal: levelState.minutesTotal + args.minutes,
       activeDates,
@@ -512,6 +611,13 @@ export const recordLessonCompletion = mutation({
       missionId: mission.missionId,
       missionCompleted,
       unlockedNextLevel,
+      checkpointAwardedId,
+      duplicateSameDay,
+      appliedCredits: {
+        bronze: appliedBronzeCredit,
+        silver: appliedSilverCredit,
+        gold: appliedGoldCredit,
+      },
     };
   },
 });
