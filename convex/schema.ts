@@ -25,16 +25,7 @@ export default defineSchema({
     difficulty: v.optional(v.string()), // A1/A2/B1/B2
     completed: v.boolean(), // user has done this exercise
     result: v.optional(v.any()), // score/answers after completion
-    source: v.optional(
-      v.union(
-        v.literal("seed"),
-        v.literal("nightly"),
-        v.literal("mission_topup"),
-        v.literal("recovery"),
-        v.literal("ad_hoc"),
-        v.literal("conversation_variant")
-      )
-    ),
+    source: v.optional(v.string()),
   })
     .index("by_date", ["date"])
     .index("by_date_type", ["date", "type"])
