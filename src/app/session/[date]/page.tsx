@@ -177,17 +177,16 @@ export default function SessionPage() {
 
     // For Bronze: append topic-matched due cards as SRS exercises
     if (selectedMode === "quick" && topicDueCards.length > 0) {
-      const cardExercises: Exercise[] = topicDueCards.map((card: ConvexCard, i: number) => ({
-        _id: `card-${card._id}`,
+      const cardExercises = topicDueCards.map((card: ConvexCard, i: number) => ({
+        _id: `card-${card._id as string}`,
         date: dateParam,
-        type: "srs" as const,
+        type: "srs" as Exercise["type"],
         order: 900 + i,
-        content: { front: card.it, back: card.en },
-        difficulty: card.level ?? "A1",
+        content: { front: card.it as string, back: card.en as string },
+        difficulty: (card.level as string) ?? "A1",
         completed: false,
-        source: "card_deck" as const,
-        _cardId: card._id,
-      }));
+        source: "seed" as Exercise["source"],
+      } satisfies Exercise));
       return [...missionExercises, ...cardExercises];
     }
 
