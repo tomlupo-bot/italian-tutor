@@ -541,9 +541,32 @@ export const generateExercises = mutation({
       });
     }
 
-    // Insert all
+    // Insert all — use bulkCreate-style dedup by (date, type, order)
     for (const row of rows) {
-      await ctx.db.insert("exercises", row);
+      const existing = await ctx.db
+        .query("exercises")
+        .withIndex("by_date", (q) => q.eq("date", row.date))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("type"), row.type),
+            q.eq(q.field("order"), row.order)
+          )
+        )
+        .first();
+      if (!existing) {
+        await ctx.db.insert("exercises", {
+          date: row.date,
+          type: row.type,
+          order: row.order,
+          content: row.content,
+          completed: row.completed,
+          skillId: row.skillId,
+          missionId: row.missionId,
+          tier: row.tier as "quick" | "standard" | "deep",
+          difficulty: row.difficulty,
+          source: row.source,
+        });
+      }
     }
 
     return {
