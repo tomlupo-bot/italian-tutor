@@ -486,8 +486,8 @@ export function useExerciseSession({
       // SM-2 scheduling for SRS exercises
       if (currentExercise.type === "srs" && "quality" in result) {
         const quality = (result as { quality: number }).quality;
-        // Map 0-5 quality to SM-2 review quality (1/3/5)
-        const sm2Quality = quality <= 1 ? 1 : quality <= 3 ? 3 : 5;
+        // Pass quality directly — SM-2 handles 0 (again), 2 (hard), 3 (good), 5 (easy)
+        const sm2Quality = quality;
 
         if (isCardExercise) {
           // Card from cards table — call review directly
