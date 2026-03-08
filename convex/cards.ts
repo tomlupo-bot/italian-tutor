@@ -318,3 +318,87 @@ export const getTags = query({
       .sort((a, b) => b.count - a.count);
   },
 });
+
+// Upsert a card — find by Italian text, create if missing, review if exists
+export const upsert = mutation({
+  args: {
+    it: v.string(),
+    en: v.string(),
+    source: v.union(
+      v.literal("builtin"),
+      v.literal("lesson"),
+      v.literal("correction"),
+      v.literal("manual")
+    ),
+    tag: v.optional(v.string()),
+    level: v.optional(v.string()),
+    quality: v.number(), // SM-2 quality: 1 (again), 3 (good), 5 (easy)
+  },
+  handler: async (ctx, args) => {
+    // Try to find existing card by Italian text
+    const existing = await ctx.db
+      .query("cards")
+      .filter((q) => q.eq(q.field("it"), args.it))
+      .first();
+
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
+
+    if (existing) {
+      // Review existing card with SM-2
+      const q = args.quality;
+      let { ease, interval, repetitions } = existing;
+
+      if (q < 3) {
+        repetitions = 0;
+        interval = 1;
+      } else {
+        if (repetitions === 0) {
+          interval = 1;
+        } else if (repetitions === 1) {
+          interval = 6;
+        } else {
+          interval = Math.round(interval * ease);
+        }
+        repetitions += 1;
+        ease = Math.max(1.3, ease + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
+      }
+
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + interval);
+      const nextReview = nextDate.toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
+
+      await ctx.db.patch(existing._id, {
+        ease,
+        interval,
+        repetitions,
+        nextReview,
+        lastQuality: q,
+        lastReviewed: today,
+        ...(args.tag && !existing.tag ? { tag: args.tag } : {}),
+        ...(args.level && !existing.level ? { level: args.level } : {}),
+      });
+      return existing._id;
+    } else {
+      // Create new card with initial SM-2 values
+      const q = args.quality;
+      const interval = q < 3 ? 1 : q <= 3 ? 1 : 4;
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + interval);
+      const nextReview = nextDate.toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
+
+      return await ctx.db.insert("cards", {
+        it: args.it,
+        en: args.en,
+        source: args.source,
+        tag: args.tag,
+        level: args.level,
+        ease: 2.5,
+        interval,
+        repetitions: q >= 3 ? 1 : 0,
+        nextReview,
+        lastQuality: q,
+        lastReviewed: today,
+      });
+    }
+  },
+});

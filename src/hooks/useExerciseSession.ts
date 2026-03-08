@@ -328,6 +328,8 @@ export function useExerciseSession({
   const saveSession = useMutation(api.sessions.save);
   const attachMissionOutcome = useMutation(api.sessions.attachMissionOutcome);
   const markComplete = useMutation(api.exercises.markComplete);
+  const reviewCard = useMutation(api.cards.review);
+  const upsertCard = useMutation(api.cards.upsert);
   const bulkAddCards = useMutation(api.cards.bulkAdd);
   const updateCardExplanation = useMutation(api.cards.updateExplanation);
   const recordMissionCompletion = useMutation(api.missions.recordLessonCompletion);
@@ -472,12 +474,39 @@ export function useExerciseSession({
       });
 
       // Mark exercise complete in Convex (fire and forget)
-      markComplete({
-        exerciseId: currentExercise._id as Parameters<typeof markComplete>[0]["exerciseId"],
-        result: result as Parameters<typeof markComplete>[0]["result"],
-      }).catch(() => {
-        // Non-critical — session save captures everything
-      });
+      const isCardExercise = currentExercise._id.startsWith("card-");
+      if (!isCardExercise) {
+        markComplete({
+          exerciseId: currentExercise._id as Parameters<typeof markComplete>[0]["exerciseId"],
+          result: result as Parameters<typeof markComplete>[0]["result"],
+        }).catch(() => {});
+      }
+
+      // SM-2 scheduling for SRS exercises
+      if (currentExercise.type === "srs" && "quality" in result) {
+        const quality = (result as { quality: number }).quality;
+        // Map 0-5 quality to SM-2 review quality (1/3/5)
+        const sm2Quality = quality <= 1 ? 1 : quality <= 3 ? 3 : 5;
+
+        if (isCardExercise) {
+          // Card from cards table — call review directly
+          const realCardId = currentExercise._id.replace("card-", "");
+          reviewCard({ cardId: realCardId as Parameters<typeof reviewCard>[0]["cardId"], quality: sm2Quality }).catch(() => {});
+        } else {
+          // Mission SRS exercise — upsert into cards table for SM-2 tracking
+          const content = currentExercise.content as { front?: string; back?: string };
+          if (content.front && content.back) {
+            upsertCard({
+              it: content.front,
+              en: content.back,
+              source: "lesson" as const,
+              tag: currentExercise.missionId ?? undefined,
+              level: currentExercise.difficulty ?? "A1",
+              quality: sm2Quality,
+            }).catch(() => {});
+          }
+        }
+      }
 
       // Advance or finish
       if (current + 1 >= total) {
