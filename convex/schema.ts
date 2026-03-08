@@ -14,13 +14,31 @@ export default defineSchema({
     order: v.number(), // sequence within the day
     content: v.any(), // type-specific payload (see templates.json)
     skillId: v.optional(v.string()), // which milestone skill this targets
+    missionId: v.optional(v.string()), // active mission context if generated for a mission
+    checkpointId: v.optional(v.string()), // active checkpoint/subgoal if applicable
+    tier: v.optional(
+      v.union(v.literal("quick"), v.literal("standard"), v.literal("deep"))
+    ),
+    generationReason: v.optional(v.string()), // low_inventory|recovery|session_followup|mission_change
+    variantKey: v.optional(v.string()), // dedupe or rotate scenario variants
+    staleAfter: v.optional(v.string()), // YYYY-MM-DD soft freshness boundary
     difficulty: v.optional(v.string()), // A1/A2/B1/B2
     completed: v.boolean(), // user has done this exercise
     result: v.optional(v.any()), // score/answers after completion
-    source: v.optional(v.string()), // "batch" | "nightly"
+    source: v.optional(
+      v.union(
+        v.literal("seed"),
+        v.literal("mission_topup"),
+        v.literal("recovery"),
+        v.literal("ad_hoc"),
+        v.literal("conversation_variant")
+      )
+    ),
   })
     .index("by_date", ["date"])
-    .index("by_date_type", ["date", "type"]),
+    .index("by_date_type", ["date", "type"])
+    .index("by_date_source", ["date", "source"])
+    .index("by_mission_tier", ["missionId", "tier"]),
 
   // ── Sessions (enhanced with exercise tracking) ───────────────────
   sessions: defineTable({

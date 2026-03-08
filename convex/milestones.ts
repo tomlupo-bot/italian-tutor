@@ -19,7 +19,7 @@ export const getByLevel = query({
   },
 });
 
-// Bulk upsert milestones (for nightly sync from quark.db)
+// Bulk upsert milestones (for Marco analytics sync from quark.db or equivalent store)
 // Updates existing by skillId, inserts new ones
 export const bulkUpsert = mutation({
   args: {

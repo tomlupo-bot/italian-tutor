@@ -106,7 +106,7 @@ export const add = mutation({
   },
 });
 
-// Bulk add cards (for seeding or nightly error-derived cards)
+// Bulk add cards (for seeding or Marco-generated error-derived cards)
 export const bulkAdd = mutation({
   args: {
     cards: v.array(

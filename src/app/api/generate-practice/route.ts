@@ -91,7 +91,7 @@ Return a JSON array of exercise objects. Only return the JSON array, no other te
       content: ex.content,
       difficulty: level,
       completed: false,
-      source: "ai-practice",
+      source: "ad_hoc",
     }));
 
     return NextResponse.json({ exercises: enriched });

@@ -6,6 +6,16 @@ function warsawToday(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
 }
 
+const QUICK_TYPES = new Set(["srs"]);
+const STANDARD_TYPES = new Set([
+  "cloze",
+  "word_builder",
+  "pattern_drill",
+  "speed_translation",
+  "error_hunt",
+]);
+const DEEP_TYPES = new Set(["conversation", "reflection"]);
+
 // Get all exercises for a date (app filters by mode→type mapping client-side)
 export const getByDate = query({
   args: { date: v.optional(v.string()) },
@@ -45,7 +55,60 @@ export const getDateSummaries = query({
   },
 });
 
-// Get random exercises for practice (pulls from existing batches)
+// Get inventory readiness for continuous mission learning.
+export const getInventoryStatus = query({
+  args: {
+    date: v.optional(v.string()),
+    missionId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const date = args.date ?? warsawToday();
+    let exercises = await ctx.db
+      .query("exercises")
+      .withIndex("by_date", (q) => q.eq("date", date))
+      .collect();
+
+    if (args.missionId) {
+      exercises = exercises.filter((ex) => ex.missionId === args.missionId);
+    }
+
+    let quickReady = 0;
+    let standardReady = 0;
+    let deepReady = 0;
+    let recoveryReady = 0;
+
+    for (const ex of exercises) {
+      if (ex.completed) continue;
+      if (ex.source === "recovery") recoveryReady++;
+      if (QUICK_TYPES.has(ex.type)) quickReady++;
+      else if (STANDARD_TYPES.has(ex.type)) standardReady++;
+      else if (DEEP_TYPES.has(ex.type)) deepReady++;
+    }
+
+    const totalReady = quickReady + standardReady + deepReady;
+    const status =
+      totalReady > 0
+        ? "ready"
+        : recoveryReady > 0
+          ? "recovery_only"
+          : "empty";
+
+    return {
+      date,
+      missionId: args.missionId ?? null,
+      status,
+      counts: {
+        quickReady,
+        standardReady,
+        deepReady,
+        recoveryReady,
+        totalReady,
+      },
+    };
+  },
+});
+
+// Get random exercises for practice (pulls from existing exercise inventory)
 // Prioritizes uncompleted, then completed for replay
 export const getForPractice = query({
   args: {
@@ -104,7 +167,7 @@ export const markComplete = mutation({
   },
 });
 
-// Bulk create exercises (for batch writes from Marco scripts)
+// Bulk create exercises (for Marco content ingestion)
 // Deduplicates by (date, type, order) — skips if already exists
 export const bulkCreate = mutation({
   args: {
@@ -115,8 +178,24 @@ export const bulkCreate = mutation({
         order: v.number(),
         content: v.any(),
         skillId: v.optional(v.string()),
+        missionId: v.optional(v.string()),
+        checkpointId: v.optional(v.string()),
+        tier: v.optional(
+          v.union(v.literal("quick"), v.literal("standard"), v.literal("deep"))
+        ),
+        generationReason: v.optional(v.string()),
+        variantKey: v.optional(v.string()),
+        staleAfter: v.optional(v.string()),
         difficulty: v.optional(v.string()),
-        source: v.optional(v.string()),
+        source: v.optional(
+          v.union(
+            v.literal("seed"),
+            v.literal("mission_topup"),
+            v.literal("recovery"),
+            v.literal("ad_hoc"),
+            v.literal("conversation_variant")
+          )
+        ),
       })
     ),
   },

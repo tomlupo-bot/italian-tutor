@@ -6,6 +6,14 @@
 // ── Exercise modes ────────────────────────────────────────────────────
 
 export type ExerciseMode = "quick" | "standard" | "deep";
+export type ExerciseTier = ExerciseMode;
+
+export type ExerciseSource =
+  | "seed"
+  | "mission_topup"
+  | "recovery"
+  | "ad_hoc"
+  | "conversation_variant";
 
 /** Which exercise types appear in each mode */
 /** Each tier has UNIQUE exercise types — no overlap between tiers */
@@ -191,10 +199,16 @@ export interface Exercise {
   order: number;
   content: ExerciseContent;
   skillId?: string;
+  missionId?: string;
+  checkpointId?: string;
+  tier?: ExerciseTier;
+  generationReason?: string;
+  variantKey?: string;
+  staleAfter?: string;
   difficulty: string;
   completed: boolean;
   result?: ExerciseResult;
-  source: string;
+  source: ExerciseSource;
 }
 
 // ── Type-safe content accessor ───────────────────────────────────────

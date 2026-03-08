@@ -10,6 +10,11 @@ import ModeSelector from "../components/ModeSelector";
 import SkillsWidget from "../components/SkillsWidget";
 import { useRouter } from "next/navigation";
 import type { ExerciseMode } from "@/lib/exerciseTypes";
+import {
+  inventoryToExerciseCounts,
+  pickRunnableMode,
+  type InventoryStatusResult,
+} from "@/lib/inventoryStatus";
 
 interface ActiveMissionResult {
   missionId: string;
@@ -49,9 +54,14 @@ export default function Home() {
 
   const stats = useQuery(api.sessions.getStats);
   const dueCards = useQuery(api.cards.getDue, { limit: 999 });
-  const todayExercises = useQuery(api.exercises.getByDate, { date: today });
   const milestones = useQuery(api.milestones.getAll);
   const activeMission = useQuery(api.missions.getActiveMission, {}) as ActiveMissionResult | null | undefined;
+  const inventoryStatus = useQuery(
+    api.exercises.getInventoryStatus,
+    activeMission?.missionId
+      ? { date: today, missionId: activeMission.missionId }
+      : { date: today },
+  ) as InventoryStatusResult | undefined;
   const learnerProgress = useQuery(api.missions.getLearnerProgress, {}) as
     | { missions: LearnerMission[] }
     | undefined;
@@ -60,21 +70,21 @@ export default function Home() {
     | undefined;
 
   // Count exercises per type — include due SRS cards in Bronze count
-  const exerciseCounts = useMemo(() => {
-    if (!todayExercises) return {};
-    const counts: Record<string, number> = {};
-    for (const ex of todayExercises) {
-      counts[ex.type] = (counts[ex.type] ?? 0) + 1;
-    }
-    // Bronze = SRS: include due cards even if no SRS exercises were generated
-    if (dueCards && dueCards.length > 0) {
-      counts["srs"] = Math.max(counts["srs"] ?? 0, dueCards.length);
-    }
-    return counts;
-  }, [todayExercises, dueCards]);
+  const dueCardsCount = dueCards?.length ?? 0;
+  const exerciseCounts = useMemo(
+    () => inventoryToExerciseCounts(inventoryStatus, dueCardsCount),
+    [inventoryStatus, dueCardsCount],
+  );
 
-  const totalExercises = todayExercises?.length ?? 0;
-  const hasDueCards = dueCards && dueCards.length > 0;
+  const totalExercises = useMemo(() => {
+    if (!inventoryStatus) return 0;
+    return (
+      Math.max(inventoryStatus.counts.quickReady, dueCardsCount) +
+      inventoryStatus.counts.standardReady +
+      inventoryStatus.counts.deepReady
+    );
+  }, [inventoryStatus, dueCardsCount]);
+  const hasDueCards = dueCardsCount > 0;
   const isFirstRun =
     stats !== undefined &&
     milestones !== undefined &&
@@ -106,11 +116,18 @@ export default function Home() {
     return "in_progress" as const;
   }, [activeProgress]);
 
+  const runnableRecommendedMode = useMemo(() => {
+    if (!activeProgress) return null;
+    return pickRunnableMode(
+      activeProgress.recommendedMode,
+      inventoryStatus,
+      dueCardsCount,
+    );
+  }, [activeProgress, inventoryStatus, dueCardsCount]);
+
   const handleModeSelect = (mode: ExerciseMode) => {
-    // Bronze with no SRS exercises but due cards → go to SRS practice
     if (mode === "quick") {
-      const srsExercises = todayExercises?.filter((e) => e.type === "srs").length ?? 0;
-      if (srsExercises === 0 && dueCards && dueCards.length > 0) {
+      if (dueCardsCount > 0) {
         router.push(`/practice?embedded=1&date=${today}`);
         return;
       }
@@ -119,7 +136,7 @@ export default function Home() {
   };
 
   // Loading state
-  if (stats === undefined || todayExercises === undefined) {
+  if (stats === undefined || inventoryStatus === undefined) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <Loader2 size={32} className="text-accent animate-spin" />
@@ -156,7 +173,7 @@ export default function Home() {
           </ul>
         </div>
         <p className="text-xs text-white/30">
-          Exercises will appear after Marco&apos;s first nightly run.
+          Marco will unlock fresh practice as your mission and review queue fill in.
           {hasDueCards && " Meanwhile, try some flashcard practice!"}
         </p>
         {hasDueCards ? (
@@ -258,10 +275,13 @@ export default function Home() {
               </Link>
             ) : (
               <button
-                onClick={() => handleModeSelect(activeProgress.recommendedMode)}
+                onClick={() => runnableRecommendedMode && handleModeSelect(runnableRecommendedMode)}
+                disabled={!runnableRecommendedMode}
                 className="px-4 py-2 rounded-xl text-sm font-medium bg-accent text-black"
               >
-                Continue active mission ({MODE_LABEL[activeProgress.recommendedMode]})
+                {runnableRecommendedMode
+                  ? `Continue active mission (${MODE_LABEL[runnableRecommendedMode]})`
+                  : "Marco is preparing your next step"}
               </button>
             )}
           </>
@@ -295,9 +315,9 @@ export default function Home() {
         </section>
       ) : (
         <div className="bg-card rounded-2xl border border-white/10 p-6 text-center space-y-2">
-          <p className="text-white/50">Exercises are generated Sunday night</p>
+          <p className="text-white/50">No mission-ready exercises right now</p>
           <p className="text-xs text-white/30">
-            Or the nightly patch adds new ones based on your errors.
+            Marco adapts new practice from your mission progress, errors, and due reviews.
           </p>
           {hasDueCards && (
             <Link

@@ -1,5 +1,5 @@
 /**
- * Normalizes exercise content from alternative schemas (e.g. nightly batch)
+ * Normalizes exercise content from alternative generation schemas
  * into the format expected by exercise components and card extraction.
  */
 
@@ -14,7 +14,7 @@ export function normalizeContent(type: ExerciseType, raw: unknown): unknown {
 
   switch (type) {
     case "word_builder": {
-      // Nightly: { tokens, correct_order, translation }
+      // Alternate schema: { tokens, correct_order, translation }
       // Expected: { scrambled_words, target_sentence, translation }
       if ("tokens" in c && !("scrambled_words" in c)) {
         const tokens = c.tokens as string[];
@@ -36,7 +36,7 @@ export function normalizeContent(type: ExerciseType, raw: unknown): unknown {
     }
 
     case "pattern_drill": {
-      // Nightly: { pattern, sentences: [{ sentence, blank, options }] }
+      // Alternate schema: { pattern, sentences: [{ sentence, blank, options }] }
       // Expected: { pattern_name, pattern_description, sentences: [{ template, blank, correct, hint }] }
       if ("pattern" in c && !("pattern_name" in c)) {
         const sentences = (c.sentences as AnyContent[])?.map((s) => ({
@@ -55,7 +55,7 @@ export function normalizeContent(type: ExerciseType, raw: unknown): unknown {
     }
 
     case "speed_translation": {
-      // Nightly individual: { source, options, correct } (no sentences wrapper)
+      // Alternate single-item schema: { source, options, correct } (no sentences wrapper)
       // Expected: { sentences: [{ source, options, correct }], time_limit_seconds }
       if ("source" in c && !("sentences" in c)) {
         return {
@@ -67,7 +67,7 @@ export function normalizeContent(type: ExerciseType, raw: unknown): unknown {
     }
 
     case "reflection": {
-      // Nightly: { question, options }
+      // Alternate schema: { question, options }
       // Expected: { prompt, follow_up? }
       if ("question" in c && !("prompt" in c)) {
         return { prompt: c.question, follow_up: c.follow_up };

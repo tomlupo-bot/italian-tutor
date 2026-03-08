@@ -6,6 +6,10 @@ import { api } from "../../../convex/_generated/api";
 import { CheckCircle2, Flag, Lock, Loader2, PlayCircle, Target } from "lucide-react";
 import { cn } from "@/lib/cn";
 import Link from "next/link";
+import {
+  pickRunnableMode,
+  type InventoryStatusResult,
+} from "@/lib/inventoryStatus";
 
 type Level = "A1" | "A2" | "B1" | "B2";
 const LEVELS: Level[] = ["A1", "A2", "B1", "B2"];
@@ -85,6 +89,7 @@ export default function MissionsPage() {
       ? { level: learner.level.currentLevel }
       : "skip",
   ) as { roadmap?: RoadmapRule | null } | undefined;
+  const dueCards = useQuery(api.cards.getDue, { limit: 999 });
   const seedCatalog = useMutation(api.missions.seedCatalog);
   const setActiveMission = useMutation(api.missions.setActiveMission);
 
@@ -109,6 +114,17 @@ export default function MissionsPage() {
   const activeMissionCatalog = activeMission
     ? catalog?.missions?.find((m) => m.missionId === activeMission.missionId)
     : undefined;
+  const inventoryStatus = useQuery(
+    api.exercises.getInventoryStatus,
+    activeMission?.missionId
+      ? {
+          date: new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" }),
+          missionId: activeMission.missionId,
+        }
+      : {
+          date: new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" }),
+        },
+  ) as InventoryStatusResult | undefined;
 
   const unlockChecklist = useMemo(() => {
     if (!learner?.level || !roadmapData?.roadmap || !catalog?.missions) return null;
@@ -154,6 +170,13 @@ export default function MissionsPage() {
     if (bronzeMissing > 0) return "quick";
     return "standard";
   }, [activeMission, activeMissionCatalog]);
+  const runnableMode = useMemo(
+    () =>
+      recommendedMode && inventoryStatus
+        ? pickRunnableMode(recommendedMode, inventoryStatus, dueCards?.length ?? 0)
+        : null,
+    [recommendedMode, inventoryStatus, dueCards?.length],
+  );
 
   useEffect(() => {
     if (!unlocked.has(selectedLevel)) {
@@ -269,13 +292,17 @@ export default function MissionsPage() {
                 href={
                   activeMission && (activeMission.criticalErrorsCount ?? 0) > 0
                     ? "/exercises?focus=recovery"
-                    : recommendedMode
-                      ? `/session/${new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" })}?mode=${recommendedMode}`
-                      : "/missions"
+                    : runnableMode
+                        ? `/session/${new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" })}?mode=${runnableMode}`
+                        : "/missions"
                 }
                 className="px-3 py-1.5 rounded-lg text-xs font-medium border border-accent/30 bg-accent/20 text-accent-light"
               >
-                {(activeMission?.criticalErrorsCount ?? 0) > 0 ? "Run recovery session" : "Continue active mission"}
+                {(activeMission?.criticalErrorsCount ?? 0) > 0
+                  ? "Run recovery session"
+                  : runnableMode
+                    ? `Continue active mission (${runnableMode === "quick" ? "Bronze" : runnableMode === "standard" ? "Silver" : "Gold"})`
+                    : "Preparing next mission content"}
               </Link>
               {(activeMission?.criticalErrorsCount ?? 0) > 0 && (
                 <span className="text-[11px] text-warn">

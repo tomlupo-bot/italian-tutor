@@ -93,7 +93,7 @@ export const listRecent = query({
   },
 });
 
-// Get sessions for a date range (for Marco's nightly analysis)
+// Get sessions for a date range (for Marco analytics and content adaptation)
 export const getByDateRange = query({
   args: { from: v.string(), to: v.string() },
   handler: async (ctx, args) => {
