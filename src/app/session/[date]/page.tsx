@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useParams, useSearchParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+// useRouter removed — Bronze no longer redirects to /practice
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { Exercise, ExerciseMode } from "@/lib/exerciseTypes";
@@ -16,6 +16,7 @@ import {
   inventoryToExerciseCounts,
   type InventoryStatusResult,
 } from "@/lib/inventoryStatus";
+// NOTE: /practice page still exists for standalone SRS card-deck review
 
 const MODE_LABELS: Record<ExerciseMode, string> = {
   quick: "Bronze",
@@ -42,7 +43,6 @@ interface CatalogMission {
 }
 
 export default function SessionPage() {
-  const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const dateParam = params.date as string;
@@ -53,7 +53,7 @@ export default function SessionPage() {
   );
 
   const allExercises = useQuery(api.exercises.getByDate, { date: dateParam });
-  const dueCards = useQuery(api.cards.getDue, { limit: 200 });
+  // dueCards moved to /practice page (standalone SRS review)
   const activeMission = useQuery(api.missions.getActiveMission, {}) as ActiveMissionResult | null | undefined;
   const inventoryStatus = useQuery(
     api.exercises.getInventoryStatus,
@@ -111,29 +111,14 @@ export default function SessionPage() {
   }, [allExercises]);
 
   // Count exercises per type (for mode selector)
-  const dueCardsCount = useMemo(
-    () =>
-      inferredTopicTag && dueCards
-        ? dueCards.filter((c) => c.tag === inferredTopicTag).length
-        : (dueCards?.length ?? 0),
-    [dueCards, inferredTopicTag],
-  );
+  // Bronze uses SRS exercises from exercises table, not old card deck
   const exerciseCounts = useMemo(
-    () => inventoryToExerciseCounts(inventoryStatus, dueCardsCount),
-    [inventoryStatus, dueCardsCount],
+    () => inventoryToExerciseCounts(inventoryStatus, 0),
+    [inventoryStatus],
   );
 
-  useEffect(() => {
-    if (selectedMode !== "quick") return;
-    const p = new URLSearchParams({
-      from: "session",
-      mode: "bronze",
-      date: dateParam,
-      embedded: "1",
-    });
-    if (inferredTopicTag) p.set("tag", inferredTopicTag);
-    router.push(`/practice?${p.toString()}`);
-  }, [dateParam, inferredTopicTag, router, selectedMode]);
+  // Bronze now uses ExerciseFlow with SRS exercises from exercises table
+  // (old card-deck SRS review is available separately from /practice)
 
   // Filter exercises by mode
   const candidateExercises = useMemo(() => {
@@ -175,19 +160,7 @@ export default function SessionPage() {
     );
   }
 
-  // No exercises for this date
-  if (selectedMode === "quick" && dueCardsCount > 0) {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-3 px-4">
-        <Loader2 size={24} className="text-accent animate-spin" />
-        <p className="text-sm text-white/60">
-          Opening Bronze SRS practice...
-        </p>
-      </main>
-    );
-  }
-
-  if ((inventoryStatus.counts.totalReady ?? 0) === 0 && dueCardsCount === 0) {
+  if ((inventoryStatus.counts.totalReady ?? 0) === 0) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
         <p className="text-white/50">No mission-ready exercises for {dateParam}</p>
@@ -256,13 +229,6 @@ export default function SessionPage() {
             exerciseCounts={exerciseCounts}
             onSelect={setSelectedMode}
           />
-        </div>
-      ) : selectedMode === "quick" ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4">
-          <Loader2 size={24} className="text-accent animate-spin" />
-          <p className="text-sm text-white/60">
-            Opening Bronze SRS practice...
-          </p>
         </div>
       ) : modeExercises.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">

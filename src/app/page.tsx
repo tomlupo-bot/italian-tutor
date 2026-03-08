@@ -126,12 +126,6 @@ export default function Home() {
   }, [activeProgress, inventoryStatus, dueCardsCount]);
 
   const handleModeSelect = (mode: ExerciseMode) => {
-    if (mode === "quick") {
-      if (dueCardsCount > 0) {
-        router.push(`/practice?embedded=1&date=${today}`);
-        return;
-      }
-    }
     router.push(`/session/${today}?mode=${mode}`);
   };
 
@@ -328,6 +322,20 @@ export default function Home() {
             </Link>
           )}
         </div>
+      )}
+
+      {/* SRS Card Review — separate from mission exercises */}
+      {hasDueCards && (
+        <Link
+          href="/practice"
+          className="flex items-center justify-between px-4 py-3 rounded-xl bg-card border border-white/10 hover:bg-white/5 transition"
+        >
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-yellow-400" />
+            <span className="text-sm">SRS Card Review</span>
+          </div>
+          <span className="text-xs text-white/40">{dueCards?.length ?? 0} due</span>
+        </Link>
       )}
 
       {/* Skills Progress Widget */}
