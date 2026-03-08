@@ -1,26 +1,16 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import type { ExerciseResult, SrsContent, SrsResult } from "@/lib/exerciseTypes";
-import { cn } from "@/lib/cn";
-import { Volume2 } from "lucide-react";
-import { playItalianTts } from "@/lib/audioTts";
+import SrsCard from "@/components/SrsCard";
 
 interface Props {
   content: unknown;
   onComplete: (result: ExerciseResult) => void;
 }
 
-const QUALITY_BUTTONS = [
-  { quality: 0, label: "Again", color: "bg-danger/20 text-danger border-danger/30" },
-  { quality: 2, label: "Hard", color: "bg-warn/20 text-warn border-warn/30" },
-  { quality: 3, label: "Good", color: "bg-accent/20 text-accent-light border-accent/30" },
-  { quality: 5, label: "Easy", color: "bg-success/20 text-success border-success/30" },
-];
-
 export default function FlashcardExercise({ content, onComplete }: Props) {
   const c = content as SrsContent;
-  const [flipped, setFlipped] = useState(false);
   const startTime = useRef(Date.now());
 
   const handleRate = useCallback(
@@ -35,67 +25,9 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
   );
 
   return (
-    <div className="space-y-4">
-      {/* Card */}
-      <div
-        onClick={() => !flipped && setFlipped(true)}
-        className={cn(
-          "bg-card rounded-2xl border p-6 min-h-[200px] flex flex-col items-center justify-center cursor-pointer transition-all",
-          flipped ? "border-accent/30" : "border-white/10 hover:border-white/20",
-        )}
-      >
-        {!flipped ? (
-          <>
-            <p className="text-2xl font-semibold text-center">{c.front}</p>
-            <div className="flex items-center gap-3 mt-4">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void playItalianTts(c.front, { userInitiated: true });
-                }}
-                className="p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition"
-              >
-                <Volume2 size={16} />
-              </button>
-              <p className="text-white/30 text-sm">Tap to reveal</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-white/40 mb-2">{c.front}</p>
-            <p className="text-xl font-medium text-accent-light text-center">
-              {c.back}
-            </p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                void playItalianTts(c.front, { userInitiated: true });
-              }}
-              className="mt-3 p-2 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition"
-            >
-              <Volume2 size={16} />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Rating buttons — only after flip */}
-      {flipped && (
-        <div className="grid grid-cols-4 gap-2">
-          {QUALITY_BUTTONS.map((btn) => (
-            <button
-              key={btn.quality}
-              onClick={() => handleRate(btn.quality)}
-              className={cn(
-                "py-3 rounded-xl text-sm font-medium border transition active:scale-95",
-                btn.color,
-              )}
-            >
-              {btn.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <SrsCard
+      card={{ front: c.front, back: c.back }}
+      onRate={handleRate}
+    />
   );
 }
