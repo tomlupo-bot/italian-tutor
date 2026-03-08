@@ -181,7 +181,7 @@ export default function Home() {
             href="/practice"
             className="px-6 py-3 bg-accent rounded-xl text-sm font-medium"
           >
-            Practice SRS cards ({dueCards.length} due)
+            Practice SRS cards ({dueCards?.length ?? 0} due)
           </Link>
         ) : (
           <Link
@@ -213,7 +213,7 @@ export default function Home() {
           {hasDueCards && (
             <div className="flex items-center gap-1.5">
               <Zap size={14} className="text-yellow-400" />
-              <span className="text-sm font-medium">{dueCards.length}</span>
+              <span className="text-sm font-medium">{dueCards?.length ?? 0}</span>
               <span className="text-xs text-white/40">due</span>
             </div>
           )}
@@ -324,7 +324,7 @@ export default function Home() {
               href="/practice"
               className="mt-3 inline-block px-4 py-2 bg-accent rounded-xl text-sm font-medium"
             >
-              Practice SRS cards ({dueCards.length} due)
+              Practice SRS cards ({dueCards?.length ?? 0} due)
             </Link>
           )}
         </div>
