@@ -199,10 +199,10 @@ export default function Home() {
           </Link>
         {hasDueCards && (
           <Link
-            href="/practice"
+            href={`/session/${today}?mode=quick`}
             className="px-6 py-3 bg-card rounded-xl border border-white/10 text-sm"
           >
-            Practice SRS cards ({dueCards?.length ?? 0} due)
+            Review SRS cards ({dueCards?.length ?? 0} due)
           </Link>
         )}
       </main>
@@ -353,27 +353,13 @@ export default function Home() {
           )}
           {hasDueCards && (
             <Link
-              href="/practice"
+              href={`/session/${today}?mode=quick`}
               className="mt-3 inline-block px-4 py-2 bg-accent rounded-xl text-sm font-medium"
             >
-              Practice SRS cards ({dueCards?.length ?? 0} due)
+              Review SRS cards ({dueCards?.length ?? 0} due)
             </Link>
           )}
         </div>
-      )}
-
-      {/* SRS Card Review — separate from mission exercises */}
-      {hasDueCards && (
-        <Link
-          href="/practice"
-          className="flex items-center justify-between px-4 py-3 rounded-xl bg-card border border-white/10 hover:bg-white/5 transition"
-        >
-          <div className="flex items-center gap-2">
-            <Zap size={16} className="text-yellow-400" />
-            <span className="text-sm">SRS Card Review</span>
-          </div>
-          <span className="text-xs text-white/40">{dueCards?.length ?? 0} due</span>
-        </Link>
       )}
 
       {/* Skills Progress Widget */}

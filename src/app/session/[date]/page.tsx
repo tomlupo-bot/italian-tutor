@@ -16,8 +16,7 @@ import {
   inventoryToExerciseCounts,
   type InventoryStatusResult,
 } from "@/lib/inventoryStatus";
-// NOTE: /practice page still exists for standalone SRS card-deck review
-import { MISSION_CARD_TAGS } from "../../../../convex/progressionCatalog";
+
 
 const MODE_LABELS: Record<ExerciseMode, string> = {
   quick: "Bronze",
@@ -114,20 +113,14 @@ export default function SessionPage() {
     return bestTag;
   }, [allExercises]);
 
-  // Topic-matched due cards for unified Bronze deck
-  const topicDueCards = useMemo(() => {
-    if (!dueCards || !activeMission?.missionId) return [];
-    const missionTags = MISSION_CARD_TAGS[activeMission.missionId] ?? [];
-    if (missionTags.length === 0) return [];
-    const tagSet = new Set(missionTags);
-    return dueCards.filter((c: ConvexCard) => c.tag && tagSet.has(c.tag));
-  }, [dueCards, activeMission?.missionId]);
+  // All due SRS cards included in Bronze deck
+  const dueCardsCount = dueCards?.length ?? 0;
 
   // Count exercises per type (for mode selector)
-  // Bronze = mission SRS exercises + topic-matched due cards
+  // Bronze = mission SRS exercises + all due SRS cards
   const exerciseCounts = useMemo(
-    () => inventoryToExerciseCounts(inventoryStatus, topicDueCards.length),
-    [inventoryStatus, topicDueCards.length],
+    () => inventoryToExerciseCounts(inventoryStatus, dueCardsCount),
+    [inventoryStatus, dueCardsCount],
   );
 
   // Bronze now uses ExerciseFlow with SRS exercises from exercises table
@@ -150,14 +143,14 @@ export default function SessionPage() {
       .filter((ex) => allowedTypes.has(ex.type as Exercise["type"]))
       .sort((a, b) => a.order - b.order);
 
-    // For Bronze: append topic-matched due cards as SRS exercises
-    if (selectedMode === "quick" && topicDueCards.length > 0) {
-      const cardExercises = topicDueCards.map((card: ConvexCard, i: number) => ({
+    // For Bronze: append all due SRS cards as exercises
+    if (selectedMode === "quick" && dueCards && dueCards.length > 0) {
+      const cardExercises = dueCards.map((card: ConvexCard, i: number) => ({
         _id: `card-${card._id as string}`,
         date: dateParam,
         type: "srs" as Exercise["type"],
         order: 900 + i,
-        content: { front: card.it as string, back: card.en as string },
+        content: { front: card.it as string, back: card.en as string, level: card.level as string, tag: card.tag as string },
         difficulty: (card.level as string) ?? "A1",
         completed: false,
         source: "seed" as Exercise["source"],
@@ -166,7 +159,7 @@ export default function SessionPage() {
     }
 
     return missionExercises;
-  }, [candidateExercises, selectedMode, topicDueCards, dateParam]);
+  }, [candidateExercises, selectedMode, dueCards, dateParam]);
 
   const activeProgress = useMemo(() => {
     const active = learnerProgress?.missions?.find((m) => m.active);
