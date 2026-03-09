@@ -15,7 +15,6 @@ function speakItalian(text: string, rate = 0.85) {
 function getClozeData(card: VocabCard): { sentence: string; answer: string } | null {
   const word = card.it.toLowerCase().replace(/^(il |la |lo |l'|i |le |gli |un |una |uno )/, "");
   const ex = card.ex;
-  // Try to find the word in the example
   const idx = ex.toLowerCase().indexOf(word.toLowerCase());
   if (idx === -1) return null;
   const blank = ex.substring(0, idx) + "_____" + ex.substring(idx + word.length);
@@ -40,7 +39,7 @@ export default function Flashcard({
       e.stopPropagation();
       speakItalian(card.it, speechRate);
     },
-    [card.it, speechRate]
+    [card.it, speechRate],
   );
 
   const handleSpeakExample = useCallback(
@@ -48,7 +47,7 @@ export default function Flashcard({
       e.stopPropagation();
       speakItalian(card.ex, speechRate);
     },
-    [card.ex, speechRate]
+    [card.ex, speechRate],
   );
 
   const levelColors: Record<string, string> = {
@@ -64,12 +63,11 @@ export default function Flashcard({
     </span>
   ) : null;
 
-  // ─── CLASSIC: IT → EN ─────────────────────────────
   if (mode === "classic") {
     return (
-      <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+      <div className="perspective-1000 w-full max-w-[430px] h-60 cursor-pointer mx-auto" onClick={onFlip}>
         <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
-          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-7">
             <p className="text-2xl font-semibold text-center">{card.it}</p>
             <div className="flex items-center gap-2 mt-3">
               {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
@@ -82,8 +80,8 @@ export default function Flashcard({
               <p className="text-white/30 text-sm">Tap to reveal</p>
             </div>
           </div>
-          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
-            <p className="text-lg font-medium text-accent-light">{card.en}</p>
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-7">
+            <p className="text-lg font-medium text-accent-light text-center">{card.en}</p>
             <div className="flex items-center gap-2 mt-3">
               <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
               <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" aria-label="Hear example">
@@ -96,12 +94,11 @@ export default function Flashcard({
     );
   }
 
-  // ─── REVERSE: EN → IT ─────────────────────────────
   if (mode === "reverse") {
     return (
-      <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+      <div className="perspective-1000 w-full max-w-[430px] h-60 cursor-pointer mx-auto" onClick={onFlip}>
         <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
-          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-7">
             <p className="text-2xl font-semibold text-center text-accent-light">{card.en}</p>
             <div className="flex items-center gap-2 mt-3">
               {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
@@ -109,8 +106,8 @@ export default function Flashcard({
             </div>
             <p className="text-white/30 text-sm mt-4">Can you say it in Italian?</p>
           </div>
-          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
-            <p className="text-xl font-semibold">{card.it}</p>
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-7">
+            <p className="text-xl font-semibold text-center">{card.it}</p>
             <div className="flex items-center gap-2 mt-3">
               <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
               <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0" aria-label="Hear example">
@@ -126,21 +123,20 @@ export default function Flashcard({
     );
   }
 
-  // ─── LISTENING: Audio → Guess ─────────────────────
   if (mode === "listening") {
     return (
-      <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+      <div className="perspective-1000 w-full max-w-[430px] h-60 cursor-pointer mx-auto" onClick={onFlip}>
         <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
-          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-7">
             <button onClick={handleSpeak} className="p-5 rounded-full bg-accent/20 hover:bg-accent/30 text-accent-light transition mb-4" aria-label="Listen to pronunciation">
               <Volume2 size={32} />
             </button>
             <p className="text-white/40 text-sm">Listen and guess</p>
             <div className="flex items-center gap-2 mt-2">{levelBadge}</div>
           </div>
-          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
-            <p className="text-xl font-semibold">{card.it}</p>
-            <p className="text-lg text-accent-light mt-1">{card.en}</p>
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-7">
+            <p className="text-xl font-semibold text-center">{card.it}</p>
+            <p className="text-lg text-accent-light mt-1 text-center">{card.en}</p>
             <div className="flex items-center gap-2 mt-3">
               <p className="text-white/50 text-sm italic text-center">&ldquo;{card.ex}&rdquo;</p>
               <button onClick={handleSpeakExample} className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/60 transition flex-shrink-0">
@@ -153,15 +149,14 @@ export default function Flashcard({
     );
   }
 
-  // ─── CLOZE: Fill the blank ────────────────────────
   const cloze = getClozeData(card);
   const clozeSentence = cloze?.sentence || `_____ = ${card.en}`;
   const clozeAnswer = cloze?.answer || card.it;
 
   return (
-    <div className="perspective-1000 w-full max-w-sm h-56 cursor-pointer mx-auto" onClick={onFlip}>
+    <div className="perspective-1000 w-full max-w-[430px] h-60 cursor-pointer mx-auto" onClick={onFlip}>
       <div className={cn("relative w-full h-full transition-transform duration-500 preserve-3d", flipped && "rotate-y-180")}>
-        <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+        <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-7">
           <p className="text-xs text-white/30 mb-2">📝 Fill the blank</p>
           <p className="text-lg text-center leading-relaxed">&ldquo;{clozeSentence}&rdquo;</p>
           <div className="flex items-center gap-2 mt-3">
@@ -170,13 +165,13 @@ export default function Flashcard({
           </div>
           <p className="text-white/30 text-sm mt-3">Tap to reveal</p>
         </div>
-        <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
+        <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-7">
           <p className="text-lg text-center leading-relaxed">
             &ldquo;{card.ex.replace(
               new RegExp(`(${clozeAnswer})`, "i"),
-              `**$1**`
+              `**$1**`,
             ).split("**").map((part, i) =>
-              i % 2 === 1 ? <strong key={i} className="text-accent-light">{part}</strong> : part
+              i % 2 === 1 ? <strong key={i} className="text-accent-light">{part}</strong> : part,
             )}&rdquo;
           </p>
           <p className="text-sm text-white/50 mt-2">{card.en}</p>

@@ -1,50 +1,306 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
-import { Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import SrsCard from "@/components/SrsCard";
+import type { VocabCard } from "../../data/vocab";
+import Flashcard, { speakItalian } from "../../components/Flashcard";
+import type { CardMode } from "../../components/Flashcard";
+import { cn } from "../../lib/cn";
+import { Loader2, X, ChevronDown, ArrowLeft } from "lucide-react";
+import ExerciseErrorBoundary from "../../components/exercises/ExerciseErrorBoundary";
+import Link from "next/link";
 
-type DueCard = {
-  _id: string;
-  it: string;
-  en: string;
-  level?: string;
-  tag?: string;
+const MODES: { key: CardMode; label: string; icon: string }[] = [
+  { key: "classic", label: "Classic", icon: "🇮🇹→🇬🇧" },
+  { key: "reverse", label: "Reverse", icon: "🇬🇧→🇮🇹" },
+  { key: "listening", label: "Listening", icon: "🎧" },
+  { key: "cloze", label: "Cloze", icon: "📝" },
+];
+
+const LEVELS = ["A2", "B1", "B2"] as const;
+
+const LEVEL_COLORS: Record<string, string> = {
+  A2: "bg-success/20 text-success border-success/30",
+  B1: "bg-accent/20 text-accent-light border-accent/30",
+  B2: "bg-warn/20 text-warn border-warn/30",
 };
 
+const TIER_KEY = "italian-tutor-tier-scores";
+
+type ConvexCard = Record<string, any>;
+
+function toVocabCard(card: ConvexCard): VocabCard {
+  return {
+    id: card._id,
+    it: card.it,
+    en: card.en,
+    ex: card.example || card.it,
+    tag: card.tag || card.errorCategory,
+    level: card.level,
+  };
+}
+
 export default function PracticePage() {
-  const dueCards = useQuery(api.cards.getDue, { limit: 100 }) as DueCard[] | undefined;
-  const reviewCard = useMutation(api.cards.review);
-  const [current, setCurrent] = useState(0);
+  const [selectedLevel, setSelectedLevel] = useState<string | undefined>(undefined);
+  const [selectedTag, setSelectedTag] = useState<string | undefined>(undefined);
+  const [studyAll, setStudyAll] = useState(false);
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [embeddedMode, setEmbeddedMode] = useState(false);
+  const [sessionDate, setSessionDate] = useState<string | undefined>(undefined);
+
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
   const [reviewed, setReviewed] = useState(0);
+  const [totalQuality, setTotalQuality] = useState(0);
+  const [done, setDone] = useState(false);
+  const [mode, setMode] = useState<CardMode>("classic");
 
-  const cards = dueCards ?? [];
-  const currentCard = cards[current] ?? null;
-  const remaining = Math.max(0, cards.length - reviewed);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleRate = useCallback(
-    async (quality: number) => {
+  const filteredCards = useQuery(api.cards.getFiltered, {
+    limit: 50,
+    level: selectedLevel,
+    tag: selectedTag,
+    includeAll: studyAll,
+  });
+  const tags = useQuery(api.cards.getTags);
+  const counts = useQuery(api.cards.getCount, {
+    level: selectedLevel,
+    tag: selectedTag,
+  });
+  const reviewCard = useMutation(api.cards.review);
+
+  const [offlineCards, setOfflineCards] = useState<ConvexCard[] | null>(null);
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const search = new URLSearchParams(window.location.search);
+    const rawTag = search.get("tag");
+    if (rawTag) setSelectedTag(rawTag);
+    const embedded = search.get("embedded") === "1";
+    setEmbeddedMode(embedded);
+    const date = search.get("date");
+    if (date) setSessionDate(date);
+  }, []);
+
+  useEffect(() => {
+    if (filteredCards && filteredCards.length > 0) {
+      try {
+        localStorage.setItem("marco-cards-snapshot", JSON.stringify(filteredCards));
+      } catch {}
+    }
+  }, [filteredCards]);
+
+  useEffect(() => {
+    if (filteredCards === undefined && isOffline) {
+      try {
+        const snapshot = localStorage.getItem("marco-cards-snapshot");
+        if (snapshot) setOfflineCards(JSON.parse(snapshot));
+      } catch {}
+    }
+  }, [filteredCards, isOffline]);
+
+  const cards = filteredCards ?? offlineCards ?? [];
+  const currentCard = cards[idx] as ConvexCard | undefined;
+
+  useEffect(() => {
+    if (!done || !embeddedMode || !sessionDate) return;
+    const scorePct = reviewed > 0 ? Math.round((totalQuality / (reviewed * 5)) * 100) : 0;
+    try {
+      const raw = localStorage.getItem(TIER_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const current = parsed?.[sessionDate]?.quick;
+      const bestScore = Math.max(Number(current?.bestScore ?? 0), scorePct);
+      parsed[sessionDate] = parsed[sessionDate] ?? {};
+      parsed[sessionDate].quick = {
+        completed: true,
+        bestScore,
+        lastCompleted: new Date().toISOString(),
+      };
+      localStorage.setItem(TIER_KEY, JSON.stringify(parsed));
+    } catch {}
+  }, [done, embeddedMode, reviewed, sessionDate, totalQuality]);
+
+  useEffect(() => {
+    setIdx(0);
+    setFlipped(false);
+    setReviewed(0);
+    setTotalQuality(0);
+    setDone(false);
+  }, [selectedLevel, selectedTag, studyAll]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setTagDropdownOpen(false);
+      }
+    }
+    if (tagDropdownOpen) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [tagDropdownOpen]);
+
+  useEffect(() => {
+    if (!currentCard || done) return;
+    if (mode === "classic" || mode === "listening") {
+      speakItalian(currentCard.it, 0.85);
+    }
+  }, [idx, currentCard, mode, done]);
+
+  useEffect(() => {
+    if (!currentCard || mode !== "reverse" || !flipped) return;
+    speakItalian(currentCard.it, 0.85);
+  }, [flipped, mode, currentCard]);
+
+  const handleFeedback = useCallback(
+    (quality: 1 | 3 | 5) => {
       if (!currentCard) return;
-      await reviewCard({ cardId: currentCard._id as Parameters<typeof reviewCard>[0]["cardId"], quality });
-      setReviewed((value) => value + 1);
-      setCurrent((value) => value + 1);
+
+      reviewCard({
+        cardId: currentCard._id,
+        quality,
+      }).catch(() => {});
+
+      setTotalQuality((prev) => prev + quality);
+      setReviewed((prev) => prev + 1);
+      setFlipped(false);
+
+      if (idx < cards.length - 1) {
+        setIdx((i) => i + 1);
+      } else {
+        setDone(true);
+      }
     },
-    [currentCard, reviewCard],
+    [currentCard, idx, cards.length, reviewCard],
   );
 
-  const summary = useMemo(
-    () => ({
-      reviewed,
-      total: cards.length,
-      remaining,
-    }),
-    [cards.length, remaining, reviewed],
+  const hasActiveFilters = !!(selectedLevel || selectedTag);
+
+  const filterBar = (
+    <div className="w-full space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex gap-2">
+          {LEVELS.map((level) => (
+            <button
+              key={level}
+              onClick={() => setSelectedLevel(selectedLevel === level ? undefined : level)}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium border transition",
+                selectedLevel === level
+                  ? LEVEL_COLORS[level]
+                  : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10",
+              )}
+            >
+              {level}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setStudyAll(!studyAll)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition",
+            studyAll
+              ? "bg-accent/20 text-accent-light border-accent/30"
+              : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10",
+          )}
+        >
+          <span
+            className={cn(
+              "w-3 h-3 rounded-full border-2 transition flex items-center justify-center",
+              studyAll ? "border-accent bg-accent" : "border-white/30",
+            )}
+          >
+            {studyAll && <span className="block w-1.5 h-1.5 rounded-full bg-white" />}
+          </span>
+          Study All
+        </button>
+      </div>
+
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
+          className={cn(
+            "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition",
+            selectedTag
+              ? "bg-accent/10 text-accent-light border-accent/20"
+              : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10",
+          )}
+        >
+          <span>{selectedTag || "All topics"}</span>
+          <ChevronDown size={14} className={cn("transition-transform", tagDropdownOpen && "rotate-180")} />
+        </button>
+        {tagDropdownOpen && (
+          <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg bg-card border border-white/10 shadow-lg">
+            <button
+              onClick={() => {
+                setSelectedTag(undefined);
+                setTagDropdownOpen(false);
+              }}
+              className={cn(
+                "w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition",
+                !selectedTag ? "text-accent-light" : "text-white/60",
+              )}
+            >
+              All topics
+            </button>
+            {(tags ?? []).map(({ tag, count }) => (
+              <button
+                key={tag}
+                onClick={() => {
+                  setSelectedTag(tag);
+                  setTagDropdownOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-3 py-2 text-xs hover:bg-white/5 transition flex justify-between",
+                  selectedTag === tag ? "text-accent-light" : "text-white/60",
+                )}
+              >
+                <span>{tag}</span>
+                <span className="text-white/20">{count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {hasActiveFilters && (
+        <div className="flex gap-2 flex-wrap">
+          {selectedLevel && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                LEVEL_COLORS[selectedLevel],
+              )}
+            >
+              {selectedLevel}
+              <button onClick={() => setSelectedLevel(undefined)} className="hover:opacity-70 transition">
+                <X size={10} />
+              </button>
+            </span>
+          )}
+          {selectedTag && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent/15 text-accent-light border border-accent/20">
+              {selectedTag}
+              <button onClick={() => setSelectedTag(undefined)} className="hover:opacity-70 transition">
+                <X size={10} />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {counts && (
+        <p className="text-center text-[11px] text-white/30">
+          {counts.due} due / {counts.total} total
+        </p>
+      )}
+    </div>
   );
 
-  if (dueCards === undefined) {
+  if (filteredCards === undefined && !isOffline && !offlineCards) {
     return (
       <main className="min-h-screen flex items-center justify-center">
         <Loader2 size={32} className="text-accent animate-spin" />
@@ -52,82 +308,182 @@ export default function PracticePage() {
     );
   }
 
-  if (cards.length === 0 || !currentCard) {
+  if (cards.length === 0) {
     return (
-      <main className="min-h-screen max-w-lg mx-auto px-4 py-10 flex flex-col items-center justify-center gap-5 text-center">
-        <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-wider text-accent-light">SRS Cards</p>
-          <h1 className="text-2xl font-semibold">
-            {summary.reviewed > 0 ? "Review complete" : "No cards due"}
-          </h1>
-          <p className="text-sm text-white/45">
-            {summary.reviewed > 0
-              ? `You reviewed ${summary.reviewed} card${summary.reviewed === 1 ? "" : "s"}.`
-              : "Come back when more cards are ready."}
+      <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto px-4 gap-4">
+        {!embeddedMode && <div className="w-full">{filterBar}</div>}
+        <div className="text-5xl mt-4">
+          {hasActiveFilters || studyAll ? "🔍" : "🎉"}
+        </div>
+        <h2 className="text-xl font-semibold">
+          {embeddedMode
+            ? "No Bronze cards for this topic"
+            : hasActiveFilters || studyAll
+              ? "No cards match"
+              : "All caught up!"}
+        </h2>
+        <p className="text-white/50 text-sm text-center">
+          {hasActiveFilters
+            ? "Try removing a filter or selecting a different topic"
+            : studyAll
+              ? "No cards found. Complete a lesson to generate cards."
+              : "No cards due for review"}
+        </p>
+        {!hasActiveFilters && !studyAll && (
+          <p className="text-white/30 text-xs text-center">
+            Cards are created from your exercise mistakes.
+            <br />
+            Complete a lesson to generate new cards.
           </p>
-        </div>
-        <div className="flex gap-3">
+        )}
+        {embeddedMode && sessionDate && (
           <Link
-            href="/"
-            className="px-4 py-2 rounded-xl bg-accent text-black text-sm font-medium"
+            href={`/session/${sessionDate}`}
+            className="mt-2 px-4 py-2 rounded-xl border border-white/10 text-sm text-white/70 hover:bg-white/5 transition"
           >
-            Back Home
+            Back to Session
           </Link>
-          <Link
-            href="/exercises?focus=recovery"
-            className="px-4 py-2 rounded-xl border border-white/10 bg-card text-sm"
-          >
-            Error Drills
-          </Link>
-        </div>
+        )}
       </main>
     );
   }
 
+  if (done) {
+    const avg = reviewed > 0 ? (totalQuality / reviewed).toFixed(1) : "0";
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto px-4 gap-6">
+        <div className="text-5xl">✅</div>
+        <h2 className="text-xl font-semibold">Practice Complete!</h2>
+        <div className="flex gap-6 text-center">
+          <div>
+            <p className="text-2xl font-bold text-accent-light">{reviewed}</p>
+            <p className="text-xs text-white/40">Reviewed</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-success">{avg}</p>
+            <p className="text-xs text-white/40">Avg Quality</p>
+          </div>
+        </div>
+        {embeddedMode && sessionDate && (
+          <Link
+            href={`/session/${sessionDate}`}
+            className="px-4 py-2 rounded-xl border border-white/10 text-sm text-white/70 hover:bg-white/5 transition"
+          >
+            Back to Session
+          </Link>
+        )}
+      </main>
+    );
+  }
+
+  if (!currentCard) return null;
+  const vocabCard = toVocabCard(currentCard);
+
   return (
-    <main className="min-h-screen max-w-lg mx-auto px-4 py-4 flex flex-col gap-4">
-      <div className="text-center space-y-1 pt-1">
-        <p className="text-[11px] uppercase tracking-wider text-accent-light">SRS Cards</p>
-        <h1 className="text-lg font-semibold">Due cards only</h1>
-        <p className="text-xs text-white/35">
-          Standalone review lane. This does not use the mission Bronze queue.
-        </p>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-card/70 px-4 py-3">
-        <div className="flex items-center justify-between text-xs text-white/45">
-          <span>Progress</span>
-          <span>{summary.reviewed}/{summary.total}</span>
+    <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto px-4 gap-4">
+      {embeddedMode && (
+        <div className="w-full flex items-center justify-between mb-1">
+          <Link
+            href={sessionDate ? `/session/${sessionDate}` : "/"}
+            className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div className="text-center">
+            <p className="text-xs text-white/30">{sessionDate ?? "today"}</p>
+            <h1 className="text-sm font-semibold">Bronze Session</h1>
+          </div>
+          <div className="w-6" />
         </div>
-        <div className="mt-2 h-2 rounded-full bg-white/5 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-accent transition-all duration-300"
-            style={{ width: `${summary.total > 0 ? (summary.reviewed / summary.total) * 100 : 0}%` }}
-          />
-        </div>
-        <p className="mt-2 text-[11px] text-white/35">
-          {summary.remaining} remaining
-        </p>
-      </div>
+      )}
+      {!embeddedMode && filterBar}
 
-      <SrsCard
-        card={{
-          front: currentCard.it,
-          back: currentCard.en,
-          level: currentCard.level,
-          tag: currentCard.tag,
-        }}
-        onRate={(quality) => void handleRate(quality)}
-      />
+      <div className="flex gap-2 flex-wrap justify-center">
+        {MODES.map((m) => (
+          <button
+            key={m.key}
+            onClick={() => {
+              setMode(m.key);
+              setFlipped(false);
+            }}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-xs font-medium transition",
+              mode === m.key ? "bg-accent text-white" : "bg-white/5 text-white/40 hover:bg-white/10",
+            )}
+          >
+            {m.icon} {m.label}
+          </button>
+        ))}
+      </div>
 
       <div className="text-center">
-        <Link
-          href="/"
-          className="text-xs text-accent-light hover:text-accent transition"
-        >
-          Back to mission home
-        </Link>
+        <h2 className="text-lg font-semibold text-accent-light">SRS Practice</h2>
+        <p className="text-white/40 text-sm">
+          {idx + 1} / {cards.length} {studyAll ? "cards" : "due"}
+        </p>
+        <div className="w-48 h-1.5 bg-white/5 rounded-full mt-2 mx-auto">
+          <div
+            className="h-full bg-accent rounded-full transition-all"
+            style={{ width: `${(reviewed / cards.length) * 100}%` }}
+          />
+        </div>
       </div>
+
+      <div className="flex gap-2 items-center">
+        {currentCard.level && (
+          <span
+            className={cn(
+              "text-[10px] px-2 py-0.5 rounded-full font-medium border",
+              LEVEL_COLORS[currentCard.level] || "bg-white/10 text-white/50 border-white/20",
+            )}
+          >
+            {currentCard.level}
+          </span>
+        )}
+        {currentCard.source === "correction" && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-warn/20 text-warn">
+            From your mistakes
+          </span>
+        )}
+      </div>
+
+      <ExerciseErrorBoundary onSkip={() => handleFeedback(1)}>
+        <Flashcard
+          card={vocabCard}
+          flipped={flipped}
+          onFlip={() => setFlipped(!flipped)}
+          mode={mode}
+          speechRate={0.85}
+        />
+      </ExerciseErrorBoundary>
+
+      {flipped ? (
+        <div className="flex gap-3">
+          <button
+            onClick={() => handleFeedback(1)}
+            className="px-5 py-3 rounded-xl bg-danger/20 border border-danger/30 hover:bg-danger/30 transition text-sm font-medium"
+            aria-label="Again — review soon"
+          >
+            Again
+          </button>
+          <button
+            onClick={() => handleFeedback(3)}
+            className="px-5 py-3 rounded-xl bg-warn/20 border border-warn/30 hover:bg-warn/30 transition text-sm font-medium"
+            aria-label="Good — review later"
+          >
+            Good
+          </button>
+          <button
+            onClick={() => handleFeedback(5)}
+            className="px-5 py-3 rounded-xl bg-success/20 border border-success/30 hover:bg-success/30 transition text-sm font-medium"
+            aria-label="Easy — long interval"
+          >
+            Easy
+          </button>
+        </div>
+      ) : (
+        <p className="text-white/20 text-xs">Tap card to flip</p>
+      )}
     </main>
   );
 }
