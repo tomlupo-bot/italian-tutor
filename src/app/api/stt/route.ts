@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 let _openai: OpenAI | null = null;
+const DEFAULT_TRANSCRIPTION_MODEL = process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe";
+const FALLBACK_TRANSCRIPTION_MODEL = "whisper-1";
+
 function getOpenAI() {
   if (!_openai) {
     _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
@@ -25,14 +28,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Audio too large (max 10MB)" }, { status: 400 });
     }
 
-    const transcribe = async (prompt?: string) =>
+    const transcribeWithModel = async (model: string, prompt?: string) =>
       getOpenAI().audio.transcriptions.create({
-      model: "whisper-1",
-      file: audio,
-      language,
-      prompt,
-      response_format: "text",
-    });
+        model,
+        file: audio,
+        language,
+        prompt,
+        response_format: "text",
+      });
+
+    const transcribe = async (prompt?: string) => {
+      try {
+        return await transcribeWithModel(DEFAULT_TRANSCRIPTION_MODEL, prompt);
+      } catch (error) {
+        if (DEFAULT_TRANSCRIPTION_MODEL === FALLBACK_TRANSCRIPTION_MODEL) {
+          throw error;
+        }
+        console.warn(`STT model ${DEFAULT_TRANSCRIPTION_MODEL} failed, retrying with ${FALLBACK_TRANSCRIPTION_MODEL}.`);
+        return transcribeWithModel(FALLBACK_TRANSCRIPTION_MODEL, prompt);
+      }
+    };
 
     let text = String(await transcribe("Trascrizione in italiano. Non tradurre.") || "").trim();
     if (/[\u0400-\u04FF]/.test(text)) {

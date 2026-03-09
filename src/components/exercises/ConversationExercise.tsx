@@ -13,6 +13,7 @@ import { apiPath } from "@/lib/paths";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Check, Mic, Send, Square, Volume2 } from "lucide-react";
+import type { ActiveMissionResult } from "@/lib/missionTypes";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -20,15 +21,17 @@ interface ChatMessage {
   correction?: { original: string; corrected: string; explanation: string };
 }
 
+interface ChatMeta {
+  done?: boolean;
+  correction?: ConversationError;
+  errors?: ConversationError[];
+  newPhrases?: string[];
+  grammarTip?: string;
+}
+
 interface Props {
   content: unknown;
   onComplete: (result: ExerciseResult) => void;
-}
-
-interface ActiveMissionResult {
-  missionId: string;
-  title: string;
-  summary: string;
 }
 
 function pickRecorderMimeType(): string | undefined {
@@ -40,6 +43,22 @@ function pickRecorderMimeType(): string | undefined {
     "audio/ogg;codecs=opus",
   ];
   return options.find((t) => MediaRecorder.isTypeSupported?.(t));
+}
+
+function parseLegacyMeta(rawContent: string): { content: string; meta: ChatMeta } {
+  const jsonMatch = rawContent.match(/```json\s*([\s\S]*?)```/);
+  if (!jsonMatch) {
+    return { content: rawContent, meta: {} };
+  }
+
+  try {
+    return {
+      content: rawContent.replace(/```json[\s\S]*?```/, "").trim(),
+      meta: JSON.parse(jsonMatch[1]) as ChatMeta,
+    };
+  } catch {
+    return { content: rawContent, meta: {} };
+  }
 }
 
 export default function ConversationExercise({ content, onComplete }: Props) {
@@ -247,43 +266,51 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        const rawContent = data.content as string;
-        const jsonMatch = rawContent.match(/```json\s*([\s\S]*?)```/);
-        let correction: ChatMessage["correction"] | undefined;
-        let cleanContent = rawContent;
+        const fallback = parseLegacyMeta(String(data.rawContent || data.content || ""));
+        const cleanContent = String(data.content || fallback.content || "").trim();
+        const meta = (data.meta as ChatMeta | undefined) || fallback.meta;
+        const correction = meta.correction;
+        const doneErrors = Array.isArray(meta.errors) ? meta.errors : [];
 
-        if (jsonMatch) {
-          try {
-            const parsed = JSON.parse(jsonMatch[1]);
-            cleanContent = rawContent.replace(/```json[\s\S]*?```/, "").trim();
-
-            if (parsed.correction) {
-              correction = parsed.correction;
-              setErrors((prev) => [...prev, parsed.correction]);
+        if (correction) {
+          setErrors((prev) => {
+            if (prev.some((entry) => entry.original === correction.original && entry.corrected === correction.corrected)) {
+              return prev;
             }
-            if (parsed.done) {
-              if (parsed.errors) {
-                setErrors((prev) => {
-                  const existing = new Set(prev.map((e) => e.original));
-                  const newErrs = (parsed.errors as ConversationError[]).filter((e) => !existing.has(e.original));
-                  return [...prev, ...newErrs];
-                });
+            return [...prev, correction];
+          });
+        }
+
+        if (meta.done) {
+          setErrors((prev) => {
+            const existing = new Set(prev.map((e) => `${e.original}::${e.corrected}`));
+            const merged = [...prev];
+            for (const err of doneErrors) {
+              const key = `${err.original}::${err.corrected}`;
+              if (!existing.has(key)) {
+                merged.push(err);
+                existing.add(key);
               }
-              const allErrors = [
-                ...errors,
-                ...(parsed.correction ? [parsed.correction] : []),
-                ...((parsed.errors as ConversationError[]) || []),
-              ];
-              const assistantMsg: ChatMessage = { role: "assistant", content: cleanContent, correction };
-              const finalMsgs = [...newMessages, assistantMsg];
-              setMessages(finalMsgs);
-              void playAssistantAudio(cleanContent);
-              setTimeout(() => finishConversation(allErrors, finalMsgs), 1500);
-              return;
             }
-          } catch {
-            // ignore parse errors
+            return merged;
+          });
+
+          const allErrors = [...errors];
+          if (correction && !allErrors.some((entry) => entry.original === correction.original && entry.corrected === correction.corrected)) {
+            allErrors.push(correction);
           }
+          for (const err of doneErrors) {
+            if (!allErrors.some((entry) => entry.original === err.original && entry.corrected === err.corrected)) {
+              allErrors.push(err);
+            }
+          }
+
+          const assistantMsg: ChatMessage = { role: "assistant", content: cleanContent, correction };
+          const finalMsgs = [...newMessages, assistantMsg];
+          setMessages(finalMsgs);
+          void playAssistantAudio(cleanContent);
+          setTimeout(() => finishConversation(allErrors, finalMsgs), 1500);
+          return;
         }
 
         const assistantMsg: ChatMessage = { role: "assistant", content: cleanContent, correction };
@@ -561,15 +588,7 @@ export default function ConversationExercise({ content, onComplete }: Props) {
         {loading && (
           <div className="bg-teal-900/30 border border-teal-500/20 rounded-2xl px-4 py-3 self-start max-w-[85%]">
             <span className="text-teal-300 text-xs font-medium block mb-1">Marco</span>
-            <div className="flex gap-1">
-              <span className="animate-bounce">.</span>
-              <span className="animate-bounce" style={{ animationDelay: "0.1s" }}>
-                .
-              </span>
-              <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>
-                .
-              </span>
-            </div>
+            <p className="text-sm text-white/60">Marco is replying...</p>
           </div>
         )}
         <div ref={bottomRef} />

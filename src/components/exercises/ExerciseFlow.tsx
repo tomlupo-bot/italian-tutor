@@ -8,6 +8,7 @@ import ExerciseErrorBoundary from "./ExerciseErrorBoundary";
 import { CheckCircle, Loader2, XCircle, PartyPopper } from "lucide-react";
 import Link from "next/link";
 import SessionSummary from "../SessionSummary";
+import { prettySkillLabel } from "@/lib/labels";
 
 interface ExerciseFlowProps {
   exercises: Exercise[];
@@ -20,6 +21,7 @@ export default function ExerciseFlow({
   mode,
   date,
 }: ExerciseFlowProps) {
+  const isQuickMode = mode === "quick";
   const {
     current,
     total,
@@ -111,6 +113,7 @@ export default function ExerciseFlow({
       rules: [{ label: "Finish the session", pass: completedAll }],
     };
   }, [exercises, mode, results, total]);
+  const currentSkillLabel = prettySkillLabel(currentExercise?.skillId);
 
   // ── Completion screen ──────────────────────────────────────────────
   if (done) {
@@ -226,13 +229,15 @@ export default function ExerciseFlow({
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-4 pb-20">
-      <div className="rounded-xl border border-white/10 bg-card/40 px-3 py-2">
-        <p className="text-[10px] text-accent-light uppercase tracking-wider">
-          Session Contract
-        </p>
-        <p className="text-xs text-white/60 mt-0.5">{contract.headline}</p>
-      </div>
+    <div className={`max-w-lg mx-auto px-4 ${isQuickMode ? "py-2" : "py-4"} flex flex-col gap-4 pb-20`}>
+      {!isQuickMode && (
+        <div className="rounded-xl border border-white/10 bg-card/40 px-3 py-2">
+          <p className="text-[10px] text-accent-light uppercase tracking-wider">
+            Session Contract
+          </p>
+          <p className="text-xs text-white/60 mt-0.5">{contract.headline}</p>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="flex items-center gap-3">
@@ -248,13 +253,18 @@ export default function ExerciseFlow({
       </div>
 
       {/* Exercise type label */}
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${isQuickMode ? "justify-between" : ""}`}>
         <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent-light">
           {currentExercise.type.replace("_", " ")}
         </span>
-        {currentExercise.skillId && (
+        {currentSkillLabel && !isQuickMode && (
           <span className="text-xs text-white/30">
-            {currentExercise.skillId}
+            {currentSkillLabel}
+          </span>
+        )}
+        {isQuickMode && (
+          <span className="text-xs text-white/30">
+            Fast review
           </span>
         )}
       </div>

@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function FlashcardExercise({ content, onComplete }: Props) {
-  const c = content as SrsContent & { mode?: "classic" | "reverse" | "listening"; level?: string; tag?: string };
+  const c = content as SrsContent;
   const startTime = useRef(Date.now());
 
   const handleRate = useCallback(
@@ -26,13 +26,7 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
 
   return (
     <SrsCard
-      card={{
-        front: c.front,
-        back: c.back,
-        level: c.level,
-        tag: c.tag,
-      }}
-      mode={c.mode ?? "classic"}
+      card={{ front: c.front, back: c.back }}
       onRate={handleRate}
     />
   );

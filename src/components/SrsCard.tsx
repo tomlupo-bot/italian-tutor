@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Volume2 } from "lucide-react";
 import { playItalianTts } from "@/lib/audioTts";
@@ -38,15 +38,37 @@ interface Props {
 
 export default function SrsCard({ card, mode = "classic", onRate, speechRate = 0.85 }: Props) {
   const [flipped, setFlipped] = useState(false);
-  const startTime = useRef(Date.now());
+  const [pendingQuality, setPendingQuality] = useState<number | null>(null);
+  const submitTimerRef = useRef<number | null>(null);
 
   const handleRate = useCallback(
     (quality: number) => {
-      setFlipped(false);
-      onRate(quality);
+      if (pendingQuality !== null) return;
+      setPendingQuality(quality);
+      submitTimerRef.current = window.setTimeout(() => {
+        setPendingQuality(null);
+        setFlipped(false);
+        onRate(quality);
+      }, 2200);
     },
-    [onRate],
+    [onRate, pendingQuality],
   );
+
+  const cancelPendingRate = useCallback(() => {
+    if (submitTimerRef.current !== null) {
+      window.clearTimeout(submitTimerRef.current);
+      submitTimerRef.current = null;
+    }
+    setPendingQuality(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (submitTimerRef.current !== null) {
+        window.clearTimeout(submitTimerRef.current);
+      }
+    };
+  }, []);
 
   const speak = useCallback(
     (text: string, e?: React.MouseEvent) => {
@@ -131,7 +153,7 @@ export default function SrsCard({ card, mode = "classic", onRate, speechRate = 0
   );
 
   return (
-    <div className="space-y-4 w-full max-w-sm mx-auto">
+    <div className="space-y-4 w-full max-w-[430px] mx-auto">
       {/* Badges */}
       <div className="flex items-center justify-center gap-2">
         {card.tag && (
@@ -142,7 +164,7 @@ export default function SrsCard({ card, mode = "classic", onRate, speechRate = 0
 
       {/* Card with 3D flip */}
       <div
-        className="perspective-1000 w-full h-52 cursor-pointer"
+        className="perspective-1000 w-full h-60 cursor-pointer"
         onClick={() => !flipped && setFlipped(true)}
       >
         <div className={cn(
@@ -150,11 +172,11 @@ export default function SrsCard({ card, mode = "classic", onRate, speechRate = 0
           flipped && "rotate-y-180",
         )}>
           {/* Front */}
-          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6">
+          <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-7">
             {renderFront()}
           </div>
           {/* Back */}
-          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-6">
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-card rounded-2xl border border-accent/30 flex flex-col items-center justify-center p-7">
             {renderBack()}
           </div>
         </div>
@@ -167,14 +189,27 @@ export default function SrsCard({ card, mode = "classic", onRate, speechRate = 0
             <button
               key={btn.quality}
               onClick={() => handleRate(btn.quality)}
+              disabled={pendingQuality !== null}
               className={cn(
-                "py-3 rounded-xl text-sm font-medium border transition active:scale-95",
+                "py-3 rounded-xl text-sm font-medium border transition active:scale-95 disabled:opacity-40",
                 btn.color,
               )}
             >
               {btn.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {pendingQuality !== null && (
+        <div className="rounded-xl border border-accent/20 bg-accent/10 px-3 py-2 flex items-center justify-between gap-3">
+          <p className="text-xs text-accent-light">Rating saved. Undo?</p>
+          <button
+            onClick={cancelPendingRate}
+            className="text-xs font-medium text-white/70 hover:text-white transition"
+          >
+            Undo
+          </button>
         </div>
       )}
 

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useParams, useSearchParams } from "next/navigation";
-// useRouter removed — Bronze no longer redirects to /practice
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { Exercise, ExerciseMode } from "@/lib/exerciseTypes";
@@ -16,7 +15,11 @@ import {
   inventoryToExerciseCounts,
   type InventoryStatusResult,
 } from "@/lib/inventoryStatus";
-
+import type {
+  ActiveMissionResult,
+  CatalogMission,
+  LearnerMission,
+} from "@/lib/missionTypes";
 
 const MODE_LABELS: Record<ExerciseMode, string> = {
   quick: "Bronze",
@@ -24,25 +27,11 @@ const MODE_LABELS: Record<ExerciseMode, string> = {
   deep: "Gold",
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ConvexCard = Record<string, any>;
-
-interface ActiveMissionResult {
-  missionId: string;
-  title: string;
-  summary: string;
-}
-
-interface LearnerMission {
-  missionId: string;
-  active: boolean;
-  credits: { bronze: number; silver: number; gold: number };
-  criticalErrorsCount?: number;
-}
-
-interface CatalogMission {
-  missionId: string;
-  exerciseTargets: { bronzeReviews: number; silverDrills: number; goldConversations: number };
+interface DueCard {
+  _id: string;
+  it: string;
+  en: string;
+  level?: string;
 }
 
 export default function SessionPage() {
@@ -70,61 +59,14 @@ export default function SessionPage() {
   const catalog = useQuery(api.missions.listCatalog, {}) as
     | { missions: CatalogMission[] }
     | undefined;
-
-  const inferredTopicTag = useMemo(() => {
-    if (!allExercises || allExercises.length === 0) return "";
-    const bag: string[] = [];
-    for (const ex of allExercises as Exercise[]) {
-      if (ex.skillId) bag.push(ex.skillId);
-      if (ex.type === "conversation") {
-        const c = ex.content as { scenario?: string; target_phrases?: string[] };
-        if (c?.scenario) bag.push(c.scenario);
-        if (Array.isArray(c?.target_phrases)) bag.push(c.target_phrases.join(" "));
-      }
-      if (ex.type === "srs") {
-        const c = ex.content as { front?: string; back?: string };
-        if (c?.front) bag.push(c.front);
-        if (c?.back) bag.push(c.back);
-      }
-    }
-    const hay = bag.join(" ").toLowerCase();
-    const tagRules: Array<{ tag: string; words: string[] }> = [
-      { tag: "home", words: ["casa", "appartamento", "quartiere", "camera", "soggiorno"] },
-      { tag: "food", words: ["ristorante", "cibo", "piatto", "mangiare", "cucina"] },
-      { tag: "travel", words: ["viaggio", "treno", "vacanza", "hotel", "aeroporto"] },
-      { tag: "work", words: ["lavoro", "ufficio", "riunione", "progetto"] },
-      { tag: "sport", words: ["sport", "allenamento", "partita", "campione"] },
-      { tag: "fitness", words: ["palestra", "allenarsi", "stretching", "benessere"] },
-      { tag: "tech", words: ["tecnologia", "software", "codice", "app"] },
-      { tag: "routine", words: ["giornata", "mattina", "abitudine", "quotidiana"] },
-    ];
-    let bestTag = "";
-    let bestScore = 0;
-    for (const rule of tagRules) {
-      const score = rule.words.reduce(
-        (acc, w) => (hay.includes(w) ? acc + 1 : acc),
-        0,
-      );
-      if (score > bestScore) {
-        bestScore = score;
-        bestTag = rule.tag;
-      }
-    }
-    return bestTag;
-  }, [allExercises]);
-
-  // All due SRS cards included in Bronze deck
   const dueCardsCount = dueCards?.length ?? 0;
+  const isQuickMode = selectedMode === "quick";
 
   // Count exercises per type (for mode selector)
-  // Bronze = mission SRS exercises + all due SRS cards
   const exerciseCounts = useMemo(
     () => inventoryToExerciseCounts(inventoryStatus, dueCardsCount),
     [inventoryStatus, dueCardsCount],
   );
-
-  // Bronze now uses ExerciseFlow with SRS exercises from exercises table
-  // (old card-deck SRS review is available separately from /practice)
 
   // Filter exercises by mode
   const candidateExercises = useMemo(() => {
@@ -143,15 +85,14 @@ export default function SessionPage() {
       .filter((ex) => allowedTypes.has(ex.type as Exercise["type"]))
       .sort((a, b) => a.order - b.order);
 
-    // For Bronze: append all due SRS cards as exercises
     if (selectedMode === "quick" && dueCards && dueCards.length > 0) {
-      const cardExercises = dueCards.map((card: ConvexCard, i: number) => ({
+      const cardExercises = (dueCards as DueCard[]).map((card, i) => ({
         _id: `card-${card._id as string}`,
         date: dateParam,
         type: "srs" as Exercise["type"],
         order: 900 + i,
-        content: { front: card.it as string, back: card.en as string, level: card.level as string, tag: card.tag as string },
-        difficulty: (card.level as string) ?? "A1",
+        content: { front: card.it, back: card.en },
+        difficulty: card.level ?? "A1",
         completed: false,
         source: "seed" as Exercise["source"],
       } satisfies Exercise));
@@ -183,7 +124,7 @@ export default function SessionPage() {
     );
   }
 
-  if ((inventoryStatus.counts.totalReady ?? 0) === 0) {
+  if ((inventoryStatus.counts.totalReady ?? 0) === 0 && dueCardsCount === 0) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
         <p className="text-white/50">No mission-ready exercises for {dateParam}</p>
@@ -203,7 +144,14 @@ export default function SessionPage() {
   return (
     <main className="min-h-screen flex flex-col max-w-lg mx-auto pb-16">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-card/50 backdrop-blur sticky top-0 z-10">
+      <div
+        className={[
+          "flex items-center gap-3 px-4 py-3 sticky top-0 z-10",
+          isQuickMode
+            ? "bg-background/90 backdrop-blur"
+            : "border-b border-white/5 bg-card/50 backdrop-blur",
+        ].join(" ")}
+      >
         <Link
           href="/"
           className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white"
@@ -228,22 +176,24 @@ export default function SessionPage() {
         )}
       </div>
 
-      <div className="px-4 pt-3">
-        <div className="rounded-xl border border-white/10 bg-card/40 p-3">
-          <p className="text-[10px] text-accent-light uppercase tracking-wider">Active Mission</p>
-          <p className="text-sm font-medium mt-0.5">{activeMission?.title ?? "No mission selected"}</p>
-          <p className="text-xs text-white/45 mt-1">
-            {activeMission?.summary ??
-              "Use this session to push mission progress. Marco will adapt future content from your results and errors."}
-          </p>
-          {activeProgress && (
-            <p className="text-[11px] text-white/40 mt-2">
-              Bronze {activeProgress.bronze} · Silver {activeProgress.silver} · Gold {activeProgress.gold}
-              {activeProgress.blocker ? " · Recovery recommended" : ""}
+      {!isQuickMode && (
+        <div className="px-4 pt-3">
+          <div className="rounded-xl border border-white/10 bg-card/40 p-3">
+            <p className="text-[10px] text-accent-light uppercase tracking-wider">Active Mission</p>
+            <p className="text-sm font-medium mt-0.5">{activeMission?.title ?? "No mission selected"}</p>
+            <p className="text-xs text-white/45 mt-1">
+              {activeMission?.summary ??
+                "Use this session to push mission progress. Marco will adapt future content from your results and errors."}
             </p>
-          )}
+            {activeProgress && (
+              <p className="text-[11px] text-white/40 mt-2">
+                Bronze {activeProgress.bronze} · Silver {activeProgress.silver} · Gold {activeProgress.gold}
+                {activeProgress.blocker ? " · Recovery recommended" : ""}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Mode selection or exercise flow */}
       {!selectedMode ? (

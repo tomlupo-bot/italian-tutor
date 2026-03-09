@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 let _openai: OpenAI | null = null;
+
+type ConversationError = {
+  original: string;
+  corrected: string;
+  explanation: string;
+};
+
+type ConversationMeta = {
+  done: boolean;
+  correction?: ConversationError;
+  errors: ConversationError[];
+  newPhrases: string[];
+  grammarTip: string;
+};
+
 function getOpenAI() {
   if (!_openai) {
     _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
@@ -20,6 +35,74 @@ const TOPIC_PROMPTS: Record<string, { name: string; question: string }> = {
   culture: { name: "Cultura italiana", question: "Cosa ti affascina della cultura italiana? Hai un film o libro italiano preferito?" },
 };
 
+function buildMetadataInstructions(grammarFocus?: string): string {
+  return `
+## Output Contract
+- Every reply must end with exactly one \`\`\`json metadata block.
+- Put normal learner-facing text before the JSON block.
+- The JSON block must follow this exact shape:
+\`\`\`json
+{"done": false, "correction": null, "errors": [], "newPhrases": [], "grammarTip": ""}
+\`\`\`
+- Set \`done\` to true only when the conversation is finished.
+- Use \`correction\` only when the learner made one clear mistake worth surfacing now. Otherwise use null.
+- Keep \`errors\` empty on normal turns. Only include the full list when \`done\` is true.
+- Keep \`newPhrases\` to short Italian phrases only.
+- Keep \`grammarTip\` empty on normal turns. When \`done\` is true, include one short English tip${grammarFocus ? ` about ${grammarFocus}` : ""}.
+- Return valid JSON only inside the metadata block. No comments, no trailing commas.
+`;
+}
+
+function normalizeError(value: unknown): ConversationError | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const original = typeof candidate.original === "string" ? candidate.original.trim() : "";
+  const corrected = typeof candidate.corrected === "string" ? candidate.corrected.trim() : "";
+  const explanation = typeof candidate.explanation === "string" ? candidate.explanation.trim() : "";
+  if (!original || !corrected || !explanation) return null;
+  return { original, corrected, explanation };
+}
+
+function extractConversationPayload(rawContent: string): { content: string; meta: ConversationMeta } {
+  const match = rawContent.match(/```json\s*([\s\S]*?)```/i);
+  const cleanContent = rawContent.replace(/```json[\s\S]*?```/i, "").trim();
+  const fallbackMeta: ConversationMeta = {
+    done: false,
+    errors: [],
+    newPhrases: [],
+    grammarTip: "",
+  };
+
+  if (!match) {
+    return { content: cleanContent || rawContent.trim(), meta: fallbackMeta };
+  }
+
+  try {
+    const parsed = JSON.parse(match[1]) as Record<string, unknown>;
+    const correction = normalizeError(parsed.correction);
+    const errors = Array.isArray(parsed.errors)
+      ? parsed.errors.map(normalizeError).filter((error): error is ConversationError => Boolean(error))
+      : [];
+    const newPhrases = Array.isArray(parsed.newPhrases)
+      ? parsed.newPhrases.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean)
+      : [];
+    const grammarTip = typeof parsed.grammarTip === "string" ? parsed.grammarTip.trim() : "";
+
+    return {
+      content: cleanContent || rawContent.trim(),
+      meta: {
+        done: parsed.done === true,
+        correction: correction || undefined,
+        errors,
+        newPhrases,
+        grammarTip,
+      },
+    };
+  } catch {
+    return { content: cleanContent || rawContent.trim(), meta: fallbackMeta };
+  }
+}
+
 function buildSystemPrompt(topicId: string): string {
   const topic = TOPIC_PROMPTS[topicId] || TOPIC_PROMPTS.sport;
   return `You are Marco, an Italian language tutor from Rome. You're patient but direct, with a good sense of humor. You speak Italian by default and switch to English only when the student is stuck. You ask one question at a time, wait for the response, give a brief correction if needed, then ask the next question. Keep corrections short and encouraging. The student is at A2-B1 level.
@@ -34,10 +117,7 @@ Rules:
 - Be encouraging but honest
 - Use vocab from the current topic naturally
 - After 6-8 exchanges, wrap up with "Ottimo lavoro! Basta per oggi."
-- When wrapping up, include a JSON block at the end with this exact format:
-\`\`\`json
-{"done": true, "errors": [{"original": "...", "corrected": "...", "explanation": "..."}], "newPhrases": ["phrase1", "phrase2"], "grammarTip": "One grammar tip relevant to today's conversation"}
-\`\`\``;
+${buildMetadataInstructions("the current topic")}`;
 }
 
 function buildScenarioPrompt(params: {
@@ -79,18 +159,13 @@ Try to naturally create situations where the student can use these phrases. If t
 When the student makes a grammatical error:
 1. First, respond naturally to what they said (showing you understood)
 2. Then include a subtle correction in your response by using the correct form naturally
-3. Also include a JSON block with the correction details:
-\`\`\`json
-{"correction": {"original": "what they wrote wrong", "corrected": "the correct version", "explanation": "brief explanation in English"}}
-\`\`\`
+3. Put that correction in the metadata block too, using concise English for the explanation.
 
 ## Ending the Conversation
-After 6-8 exchanges (student messages), wrap up naturally ("È stato un piacere parlare con te! Alla prossima!") and include:
-\`\`\`json
-{"done": true, "errors": [{"original": "...", "corrected": "...", "explanation": "..."}], "newPhrases": ["any new phrases the student learned"], "grammarTip": "one tip about ${params.grammarFocus}"}
-\`\`\`
+After 6-8 exchanges (student messages), wrap up naturally ("È stato un piacere parlare con te! Alla prossima!"), set done=true in the metadata block, include the final error list, and include one grammar tip.
 
-Do NOT start the conversation — the opening line has already been sent. Wait for the student's first message and respond to it.`;
+Do NOT start the conversation — the opening line has already been sent. Wait for the student's first message and respond to it.
+${buildMetadataInstructions(params.grammarFocus)}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -124,8 +199,9 @@ export async function POST(req: NextRequest) {
       max_tokens: 500,
     });
 
-    const content = completion.choices[0]?.message?.content || "";
-    return NextResponse.json({ content });
+    const rawContent = completion.choices[0]?.message?.content || "";
+    const { content, meta } = extractConversationPayload(rawContent);
+    return NextResponse.json({ content, meta, rawContent });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
