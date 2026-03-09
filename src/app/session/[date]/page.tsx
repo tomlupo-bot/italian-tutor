@@ -78,6 +78,27 @@ export default function SessionPage() {
     );
   }, [allExercises, activeMission?.missionId]);
 
+  const enabledModes = useMemo(() => {
+    const available = new Set<ExerciseMode>();
+    const missionTypes = new Set(candidateExercises.map((ex) => ex.type));
+
+    if (missionTypes.has("srs") || dueCardsCount > 0) available.add("quick");
+    if (
+      missionTypes.has("cloze") ||
+      missionTypes.has("word_builder") ||
+      missionTypes.has("pattern_drill") ||
+      missionTypes.has("speed_translation") ||
+      missionTypes.has("error_hunt")
+    ) {
+      available.add("standard");
+    }
+    if (missionTypes.has("conversation") || missionTypes.has("reflection")) {
+      available.add("deep");
+    }
+
+    return Array.from(available);
+  }, [candidateExercises, dueCardsCount]);
+
   const modeExercises = useMemo(() => {
     if (!selectedMode) return [];
     const allowedTypes = new Set(MODE_TYPES[selectedMode]);
@@ -124,7 +145,7 @@ export default function SessionPage() {
     );
   }
 
-  if ((inventoryStatus.counts.totalReady ?? 0) === 0 && dueCardsCount === 0) {
+  if (enabledModes.length === 0) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
         <p className="text-white/50">No mission-ready exercises for {dateParam}</p>
@@ -201,6 +222,7 @@ export default function SessionPage() {
           <ModeSelector
             exerciseCounts={exerciseCounts}
             onSelect={setSelectedMode}
+            enabledModes={enabledModes}
           />
         </div>
       ) : modeExercises.length === 0 ? (

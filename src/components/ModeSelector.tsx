@@ -11,6 +11,7 @@ interface ModeSelectorProps {
   onSelect: (mode: ExerciseMode) => void;
   suggested?: ExerciseMode;
   date?: string;
+  enabledModes?: ExerciseMode[];
 }
 
 // Local storage for tier completion tracking
@@ -76,6 +77,7 @@ export default function ModeSelector({
   onSelect,
   suggested,
   date,
+  enabledModes,
 }: ModeSelectorProps) {
   const [scores, setScores] = useState<Record<string, TierScore | null>>({});
   const scoreDate = date ?? new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
@@ -106,7 +108,7 @@ export default function ModeSelector({
           const count = types.reduce((sum, t) => sum + (exerciseCounts[t] ?? 0), 0);
           const score = scores[mode];
           const isCompleted = score?.completed ?? false;
-          const unavailable = count === 0;
+          const unavailable = enabledModes ? !enabledModes.includes(mode) : count === 0;
           const isSuggested = suggested === mode && !unavailable;
 
           return (
@@ -150,7 +152,7 @@ export default function ModeSelector({
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   <span className="text-sm text-white/40 tabular-nums">
-                    {unavailable ? "Unavailable" : `${count} ex`}
+                    {unavailable ? "Unavailable" : count > 0 ? `${count} ex` : "Replay"}
                   </span>
                   {isCompleted ? <RotateCcw size={12} className="text-white/20" /> : isSuggested ? <span className="text-[10px] text-accent-light">Best next</span> : null}
                 </div>
