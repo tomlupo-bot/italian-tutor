@@ -104,6 +104,16 @@ export const getByDateRange = query({
   },
 });
 
+export const getByDate = query({
+  args: { date: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("sessions")
+      .withIndex("by_date", (q) => q.eq("date", args.date))
+      .collect();
+  },
+});
+
 // Count sessions per mode (for mode completion stats)
 export const getModeCounts = query({
   handler: async (ctx) => {

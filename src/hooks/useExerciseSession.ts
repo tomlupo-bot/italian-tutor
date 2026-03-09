@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getTodayWarsaw } from "@/lib/date";
+import { triggerAnswerFeedback } from "@/lib/feedback";
 import { normalizeContent } from "@/lib/normalizeContent";
 import { apiPath } from "@/lib/paths";
 import type {
@@ -13,6 +14,7 @@ import type {
   Exercise,
   ExerciseMode,
   ExerciseResult,
+  SrsContent,
   PatternDrillContent,
   PatternDrillResult,
   SpeedTranslationContent,
@@ -111,23 +113,59 @@ function mapErrorCategoryToKey(category?: string): string {
 }
 
 function resultScore(result: ExerciseResult): number {
-  if ("correct" in result && typeof (result as { correct: boolean }).correct === "boolean") {
-    return (result as { correct: boolean }).correct ? 1 : 0;
+  if (hasCorrectFlag(result)) {
+    return result.correct ? 1 : 0;
   }
-  if ("scores" in result && Array.isArray((result as { scores: boolean[] }).scores)) {
-    const scores = (result as { scores: boolean[] }).scores;
+  if (hasScores(result)) {
+    const scores = result.scores;
     if (scores.length === 0) return 0.5;
     const ok = scores.filter(Boolean).length;
     return ok / scores.length;
   }
-  if ("total_correct" in result && typeof (result as { total_correct: number }).total_correct === "number") {
-    const total = Math.max(1, (result as { answers?: number[] }).answers?.length ?? 10);
-    return Math.max(0, Math.min(1, (result as { total_correct: number }).total_correct / total));
+  if (hasTotalCorrect(result)) {
+    const total = Math.max(1, result.answers?.length ?? 10);
+    return Math.max(0, Math.min(1, result.total_correct / total));
   }
-  if ("rating" in result && typeof (result as { rating: number }).rating === "number") {
-    return Math.max(0, Math.min(1, (result as { rating: number }).rating / 5));
+  if (hasRating(result)) {
+    return Math.max(0, Math.min(1, result.rating / 5));
   }
   return 0.5;
+}
+
+function hasCorrectFlag(result: ExerciseResult): result is ExerciseResult & { correct: boolean } {
+  return "correct" in result && typeof result.correct === "boolean";
+}
+
+function hasScores(result: ExerciseResult): result is ExerciseResult & { scores: boolean[] } {
+  return "scores" in result && Array.isArray(result.scores);
+}
+
+function hasTotalCorrect(result: ExerciseResult): result is ExerciseResult & { total_correct: number; answers?: number[] } {
+  return "total_correct" in result && typeof result.total_correct === "number";
+}
+
+function hasRating(result: ExerciseResult): result is ExerciseResult & { rating: number } {
+  return "rating" in result && typeof result.rating === "number";
+}
+
+function getConversationErrors(result: ExerciseResult) {
+  return "errors" in result && Array.isArray(result.errors)
+    ? result.errors
+        .filter((err) => Boolean(err?.original && err?.corrected))
+        .map((err) => ({
+          original: err.original,
+          corrected: err.corrected,
+          explanation: err.explanation ?? "",
+        }))
+    : [];
+}
+
+function getSrsText(content: Exercise["content"]): SrsContent | null {
+  if (!content || typeof content !== "object") return null;
+  const maybe = content as Partial<SrsContent>;
+  return typeof maybe.front === "string" && typeof maybe.back === "string"
+    ? (maybe as SrsContent)
+    : null;
 }
 
 function persistTierScore(date: string, mode: ExerciseMode, scorePercent: number) {
@@ -258,21 +296,15 @@ function extractCorrectionCards(
         break;
       }
       case "conversation": {
-        // Conversation results contain errors detected by the AI tutor
-        const convResult = result as { errors?: Array<{ original: string; corrected: string; explanation?: string }> };
-        if (convResult.errors) {
-          for (const err of convResult.errors) {
-            if (err.original && err.corrected) {
-              cards.push({
-                it: err.corrected,
-                en: err.explanation || `${err.original} → ${err.corrected}`,
-                example: err.original,
-                source: "correction",
-                skillId: ex.skillId,
-                errorCategory: "conversation",
-              });
-            }
-          }
+        for (const err of getConversationErrors(result)) {
+          cards.push({
+            it: err.corrected,
+            en: err.explanation || `${err.original} → ${err.corrected}`,
+            example: err.original,
+            source: "correction",
+            skillId: ex.skillId,
+            errorCategory: "conversation",
+          });
         }
         break;
       }
@@ -449,11 +481,8 @@ export function useExerciseSession({
           break;
         }
         case "conversation": {
-          const convResult = result as { errors?: Array<{ original: string; corrected: string; explanation?: string }> };
-          if (convResult.errors) {
-            for (const err of convResult.errors) {
-              errors.push({ ...err, category: "conversation", skillId: ex.skillId });
-            }
+          for (const err of getConversationErrors(result)) {
+            errors.push({ ...err, category: "conversation", skillId: ex.skillId });
           }
           break;
         }
@@ -473,6 +502,18 @@ export function useExerciseSession({
         next.set(currentExercise._id, result);
         return next;
       });
+      const feedbackScore = resultScore(result);
+      triggerAnswerFeedback(
+        currentExercise.type === "srs"
+          ? feedbackScore >= 0.6
+            ? "success"
+            : "error"
+          : feedbackScore >= 0.8
+            ? "success"
+            : feedbackScore >= 0.45
+              ? "warning"
+              : "error",
+      );
 
       // Mark exercise complete in Convex (fire and forget)
       const isCardExercise = currentExercise._id.startsWith("card-");
@@ -495,8 +536,8 @@ export function useExerciseSession({
           reviewCard({ cardId: realCardId as Parameters<typeof reviewCard>[0]["cardId"], quality: sm2Quality }).catch(() => {});
         } else {
           // Mission SRS exercise — upsert into cards table for SM-2 tracking
-          const content = currentExercise.content as { front?: string; back?: string };
-          if (content.front && content.back) {
+          const content = getSrsText(currentExercise.content);
+          if (content?.front && content.back) {
             upsertCard({
               it: content.front,
               en: content.back,
@@ -526,17 +567,17 @@ export function useExerciseSession({
           allResults.set(currentExercise._id, result);
 
           for (const r of allResults.values()) {
-            if ("correct" in r && typeof (r as { correct: boolean }).correct === "boolean") {
+            if (hasCorrectFlag(r)) {
               totalItems++;
-              if ((r as { correct: boolean }).correct) correctCount++;
-            } else if ("scores" in r && Array.isArray((r as { scores: boolean[] }).scores)) {
-              for (const s of (r as { scores: boolean[] }).scores) {
+              if (r.correct) correctCount++;
+            } else if (hasScores(r)) {
+              for (const s of r.scores) {
                 totalItems++;
                 if (s) correctCount++;
               }
-            } else if ("total_correct" in r) {
+            } else if (hasTotalCorrect(r)) {
               totalItems += 10;
-              correctCount += (r as { total_correct: number }).total_correct;
+              correctCount += r.total_correct;
             }
           }
 
