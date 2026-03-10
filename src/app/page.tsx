@@ -248,7 +248,7 @@ export default function Home() {
           <div className="h-4 w-px bg-white/10" />
           <div className="flex items-center gap-2">
             <Zap size={14} className="text-yellow-400" />
-            <span className="text-[11px] uppercase tracking-wide text-white/45">Due Review</span>
+            <span className="text-[11px] uppercase tracking-wide text-white/45">Due Reviews</span>
             <span className="text-sm font-semibold">{dueCardsCount}</span>
           </div>
         </div>
@@ -323,7 +323,7 @@ export default function Home() {
                     </div>
                     <div className="mt-1.5 space-y-1">
                       <div className="flex items-center justify-between text-[10px] text-white/35">
-                        <span className="uppercase tracking-wide">Progress</span>
+                        <span className="uppercase tracking-wide">Mission credit</span>
                         <span>{modeProgress?.[mode].percent ?? 0}%</span>
                       </div>
                       <div className="h-1 rounded-full bg-white/5 overflow-hidden">

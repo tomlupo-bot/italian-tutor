@@ -89,7 +89,7 @@ export default function SessionHistoryPage() {
           </div>
           <div className="rounded-xl border border-white/10 bg-card p-3 text-center">
             <p className="text-lg font-semibold">{summary.avgRating ?? "—"}</p>
-            <p className="text-[10px] text-white/35">avg rating</p>
+            <p className="text-[10px] text-white/35">avg rating / 5</p>
           </div>
         </section>
       )}
@@ -125,7 +125,7 @@ export default function SessionHistoryPage() {
                 </p>
                 {session.appliedCredits && (
                   <p>
-                    Credits: Bronze {session.appliedCredits.bronze} · Silver {session.appliedCredits.silver} · Gold {session.appliedCredits.gold}
+                    Mission credit: Bronze {session.appliedCredits.bronze} · Silver {session.appliedCredits.silver} · Gold {session.appliedCredits.gold}
                   </p>
                 )}
                 {session.checkpointAwardedId && <p>Checkpoint: {session.checkpointAwardedId}</p>}

@@ -149,7 +149,7 @@ export default function ModeSelector({
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   <span className="text-sm text-white/40 tabular-nums">
-                    {unavailable ? "Unavailable" : count > 0 ? `${count} ex` : "Replay"}
+                    {unavailable ? "Unavailable" : count > 0 ? `${count} ready` : "Replay"}
                   </span>
                   {isCompleted ? <RotateCcw size={12} className="text-white/20" /> : isSuggested ? <span className="text-[10px] text-accent-light">Best next</span> : null}
                 </div>

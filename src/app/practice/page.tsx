@@ -364,7 +364,7 @@ export default function PracticePage() {
           </div>
           <div>
             <p className="text-2xl font-bold text-success">{avg}</p>
-            <p className="text-xs text-white/40">Avg Quality</p>
+            <p className="text-xs text-white/40">Avg quality / 5</p>
           </div>
         </div>
         {embeddedMode && sessionDate && (

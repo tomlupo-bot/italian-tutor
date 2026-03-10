@@ -177,9 +177,9 @@ export default function SessionPage() {
     const mission = catalog?.missions?.find((m) => m.missionId === active.missionId);
     if (!mission) return null;
     return {
-      bronze: `${active.credits?.bronze ?? 0}/${mission.exerciseTargets.bronzeReviews}`,
-      silver: `${active.credits?.silver ?? 0}/${mission.exerciseTargets.silverDrills}`,
-      gold: `${active.credits?.gold ?? 0}/${mission.exerciseTargets.goldConversations}`,
+      bronze: `${Math.min(active.credits?.bronze ?? 0, mission.exerciseTargets.bronzeReviews)}/${mission.exerciseTargets.bronzeReviews}`,
+      silver: `${Math.min(active.credits?.silver ?? 0, mission.exerciseTargets.silverDrills)}/${mission.exerciseTargets.silverDrills}`,
+      gold: `${Math.min(active.credits?.gold ?? 0, mission.exerciseTargets.goldConversations)}/${mission.exerciseTargets.goldConversations}`,
       blocker: (active.criticalErrorsCount ?? 0) > 0,
     };
   }, [learnerProgress?.missions, catalog?.missions]);
@@ -292,7 +292,7 @@ export default function SessionPage() {
           </p>
           {activeProgress && (
             <p className="text-[11px] text-white/40 mt-2">
-              Bronze {activeProgress.bronze} · Silver {activeProgress.silver} · Gold {activeProgress.gold}
+              Mission credit: Bronze {activeProgress.bronze} · Silver {activeProgress.silver} · Gold {activeProgress.gold}
               {activeProgress.blocker ? " · Recovery recommended" : ""}
             </p>
           )}
