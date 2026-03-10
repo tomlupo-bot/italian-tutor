@@ -228,18 +228,42 @@ export default function ExerciseFlow({
     );
   }
 
-  return (
-    <div className={`${isQuickMode ? "max-w-xl" : "max-w-lg"} mx-auto px-4 ${isQuickMode ? "py-2" : "py-4"} flex flex-col gap-4 pb-20`}>
-      {!isQuickMode && (
-        <div className="rounded-xl border border-white/10 bg-card/40 px-3 py-2">
-          <p className="text-[10px] text-accent-light uppercase tracking-wider">
-            Session Contract
+  if (isQuickMode) {
+    return (
+      <div className="w-full flex flex-col items-center gap-4 pb-20">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-accent-light">Bronze Cards</h2>
+          <p className="text-white/40 text-sm">
+            {current + 1} / {total} cards
           </p>
-          <p className="text-xs text-white/60 mt-0.5">{contract.headline}</p>
+          <div className="w-48 h-1.5 bg-white/5 rounded-full mt-2 mx-auto overflow-hidden">
+            <div
+              className="h-full bg-accent rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
-      )}
 
-      {/* Progress bar */}
+        <ExerciseErrorBoundary key={currentExercise._id} onSkip={skip}>
+          <ExerciseRenderer
+            exercise={currentExercise}
+            onComplete={submitResult}
+            onSkip={skip}
+          />
+        </ExerciseErrorBoundary>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-4 pb-20">
+      <div className="rounded-xl border border-white/10 bg-card/40 px-3 py-2">
+        <p className="text-[10px] text-accent-light uppercase tracking-wider">
+          Session Contract
+        </p>
+        <p className="text-xs text-white/60 mt-0.5">{contract.headline}</p>
+      </div>
+
       <div className="flex items-center gap-3">
         <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
           <div
@@ -252,24 +276,17 @@ export default function ExerciseFlow({
         </span>
       </div>
 
-      {/* Exercise type label */}
-      <div className={`flex items-center gap-2 ${isQuickMode ? "justify-between" : ""}`}>
+      <div className="flex items-center gap-2">
         <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent-light">
           {currentExercise.type.replace("_", " ")}
         </span>
-        {currentSkillLabel && !isQuickMode && (
+        {currentSkillLabel && (
           <span className="text-xs text-white/30">
             {currentSkillLabel}
           </span>
         )}
-        {isQuickMode && (
-          <span className="text-xs text-white/30">
-            Fast review
-          </span>
-        )}
       </div>
 
-      {/* Exercise component — key forces remount between exercises */}
       <ExerciseErrorBoundary key={currentExercise._id} onSkip={skip}>
         <ExerciseRenderer
           exercise={currentExercise}

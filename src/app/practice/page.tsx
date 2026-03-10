@@ -9,6 +9,7 @@ import type { CardMode } from "../../components/Flashcard";
 import { cn } from "../../lib/cn";
 import { Loader2, X, ChevronDown, ArrowLeft } from "lucide-react";
 import ExerciseErrorBoundary from "../../components/exercises/ExerciseErrorBoundary";
+import { StudyShell } from "../../components/layout/ScreenShell";
 import Link from "next/link";
 
 const MODES: { key: CardMode; label: string; icon: string }[] = [
@@ -310,7 +311,7 @@ export default function PracticePage() {
 
   if (cards.length === 0) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto px-4 gap-4">
+      <StudyShell contentClassName="gap-4">
         {!embeddedMode && <div className="w-full">{filterBar}</div>}
         <div className="text-5xl mt-4">
           {hasActiveFilters || studyAll ? "🔍" : "🎉"}
@@ -344,14 +345,14 @@ export default function PracticePage() {
             Back to Session
           </Link>
         )}
-      </main>
+      </StudyShell>
     );
   }
 
   if (done) {
     const avg = reviewed > 0 ? (totalQuality / reviewed).toFixed(1) : "0";
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto px-4 gap-6">
+      <StudyShell contentClassName="gap-6">
         <div className="text-5xl">✅</div>
         <h2 className="text-xl font-semibold">Practice Complete!</h2>
         <div className="flex gap-6 text-center">
@@ -372,30 +373,31 @@ export default function PracticePage() {
             Back to Session
           </Link>
         )}
-      </main>
+      </StudyShell>
     );
   }
 
   if (!currentCard) return null;
   const vocabCard = toVocabCard(currentCard);
 
+  const header = embeddedMode ? (
+    <div className="w-full flex items-center justify-between">
+      <Link
+        href={sessionDate ? `/session/${sessionDate}` : "/"}
+        className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white"
+      >
+        <ArrowLeft size={18} />
+      </Link>
+      <div className="text-center">
+        <p className="text-xs text-white/30">{sessionDate ?? "today"}</p>
+        <h1 className="text-sm font-semibold">Bronze Session</h1>
+      </div>
+      <div className="w-6" />
+    </div>
+  ) : undefined;
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center max-w-lg mx-auto px-4 gap-4">
-      {embeddedMode && (
-        <div className="w-full flex items-center justify-between mb-1">
-          <Link
-            href={sessionDate ? `/session/${sessionDate}` : "/"}
-            className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div className="text-center">
-            <p className="text-xs text-white/30">{sessionDate ?? "today"}</p>
-            <h1 className="text-sm font-semibold">Bronze Session</h1>
-          </div>
-          <div className="w-6" />
-        </div>
-      )}
+    <StudyShell header={header} contentClassName="gap-4">
       {!embeddedMode && filterBar}
 
       <div className="flex gap-2 flex-wrap justify-center">
@@ -484,6 +486,6 @@ export default function PracticePage() {
       ) : (
         <p className="text-white/20 text-xs">Tap card to flip</p>
       )}
-    </main>
+    </StudyShell>
   );
 }
