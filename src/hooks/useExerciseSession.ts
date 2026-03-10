@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getTodayWarsaw } from "@/lib/date";
@@ -698,7 +698,8 @@ export function useExerciseSession({
       current,
       currentExercise,
       total,
-      results,
+        results,
+        resultsRef,
       exercises,
       markComplete,
       saveSession,
@@ -730,9 +731,12 @@ export function useExerciseSession({
     saving,
     error,
     results,
+    resultsRef,
     sessionErrors,
     missionCompleted,
     submitResult,
     skip,
   };
 }
+
+export type UseExerciseSessionResult = ReturnType<typeof useExerciseSession>;
