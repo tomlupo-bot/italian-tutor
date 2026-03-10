@@ -41,6 +41,9 @@ export interface SrsContent {
   front: string;
   back: string;
   audio_front?: string;
+  example?: string;
+  tag?: string;
+  level?: string;
 }
 
 export interface ClozeContent {

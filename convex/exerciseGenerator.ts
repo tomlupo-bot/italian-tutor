@@ -23,7 +23,7 @@ function stableShuffle<T>(arr: T[], seed: string): T[] {
 }
 
 // ── Vocab banks by tag ──────────────────────────────────────────────
-const TAG_VOCAB: Record<string, Array<{ it: string; en: string }>> = {
+const TAG_VOCAB: Record<string, Array<{ it: string; en: string; example?: string }>> = {
   home: [
     { it: "l'appartamento", en: "the apartment" },
     { it: "l'affitto", en: "the rent" },
@@ -375,13 +375,13 @@ export const generateExercises = mutation({
     let order = 0;
 
     // ── SRS flashcards (Bronze) ─────────────────────────────────
-    const vocabPool: Array<{ it: string; en: string }> = [];
+    const vocabPool: Array<{ it: string; en: string; example?: string; tag: string }> = [];
     const seen = new Set<string>();
     for (const tag of mission.tags) {
       for (const v of TAG_VOCAB[tag] ?? []) {
         if (!seen.has(v.it)) {
           seen.add(v.it);
-          vocabPool.push(v);
+          vocabPool.push({ ...v, tag });
         }
       }
     }
@@ -392,7 +392,13 @@ export const generateExercises = mutation({
         date,
         type: "srs",
         order: order++,
-        content: { front: shuffledVocab[i].it, back: shuffledVocab[i].en },
+        content: {
+          front: shuffledVocab[i].it,
+          back: shuffledVocab[i].en,
+          example: shuffledVocab[i].example ?? shuffledVocab[i].it,
+          tag: shuffledVocab[i].tag,
+          level: mission.level,
+        },
         skillId: "vocab_core",
         missionId,
         tier: "quick",

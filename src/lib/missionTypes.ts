@@ -42,6 +42,7 @@ export interface CatalogMission {
   required: boolean;
   title: string;
   summary: string;
+  tags?: string[];
   checkpoints?: MissionCheckpoint[];
   exerciseTargets: ExerciseTargets;
 }

@@ -32,6 +32,8 @@ interface DueCard {
   it: string;
   en: string;
   level?: string;
+  tag?: string;
+  example?: string;
 }
 
 export default function SessionPage() {
@@ -94,11 +96,45 @@ export default function SessionPage() {
     return Array.from(available);
   }, [candidateExercises, dueCardsCount]);
 
+  const activeMissionCatalog = useMemo(() => {
+    if (!activeMission?.missionId) return null;
+    return catalog?.missions?.find((m) => m.missionId === activeMission.missionId) ?? null;
+  }, [activeMission?.missionId, catalog?.missions]);
+
   const modeExercises = useMemo(() => {
     if (!selectedMode) return [];
     const allowedTypes = new Set(MODE_TYPES[selectedMode]);
     const missionExercises = candidateExercises
       .filter((ex) => allowedTypes.has(ex.type as Exercise["type"]))
+      .map((ex) => {
+        if (ex.type !== "srs") return ex;
+        const content = ex.content as unknown as {
+          front?: string;
+          back?: string;
+          tag?: string;
+          level?: string;
+          example?: string;
+        };
+        return {
+          ...ex,
+          content: {
+            front: content.front ?? "",
+            back: content.back ?? "",
+            ...content,
+            tag: typeof content.tag === "string" ? content.tag : activeMissionCatalog?.tags?.[0],
+            level:
+              typeof content.level === "string"
+                ? content.level
+                : ex.difficulty ?? activeMissionCatalog?.level,
+            example:
+              typeof content.example === "string"
+                ? content.example
+                : typeof content.front === "string"
+                  ? content.front
+                  : undefined,
+          },
+        };
+      })
       .sort((a, b) => a.order - b.order);
 
     if (selectedMode === "quick" && dueCards && dueCards.length > 0) {
@@ -107,7 +143,13 @@ export default function SessionPage() {
         date: dateParam,
         type: "srs" as Exercise["type"],
         order: 900 + i,
-        content: { front: card.it, back: card.en },
+        content: {
+          front: card.it,
+          back: card.en,
+          tag: card.tag,
+          level: card.level,
+          example: card.example,
+        },
         difficulty: card.level ?? "A1",
         completed: false,
         source: "seed" as Exercise["source"],
@@ -116,7 +158,7 @@ export default function SessionPage() {
     }
 
     return missionExercises;
-  }, [candidateExercises, selectedMode, dueCards, dateParam]);
+  }, [candidateExercises, selectedMode, dueCards, dateParam, activeMissionCatalog]);
 
   const activeProgress = useMemo(() => {
     const active = learnerProgress?.missions?.find((m) => m.active);

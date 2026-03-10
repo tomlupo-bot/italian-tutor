@@ -19,7 +19,9 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
     id: c.front,
     it: c.front,
     en: c.back,
-    ex: c.audio_front || c.front,
+    ex: c.example || c.audio_front || c.front,
+    tag: c.tag,
+    level: c.level as VocabCard["level"] | undefined,
   };
 
   const handleRate = useCallback(
