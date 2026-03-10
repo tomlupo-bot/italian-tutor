@@ -323,7 +323,7 @@ export default function Home() {
                     </div>
                     <div className="mt-1.5 space-y-1">
                       <div className="flex items-center justify-between text-[10px] text-white/35">
-                        <span className="uppercase tracking-wide">Mission credit</span>
+                        <span className="uppercase tracking-wide">Mission progress</span>
                         <span>{modeProgress?.[mode].percent ?? 0}%</span>
                       </div>
                       <div className="h-1 rounded-full bg-white/5 overflow-hidden">

@@ -125,7 +125,7 @@ export default function SessionHistoryPage() {
                 </p>
                 {session.appliedCredits && (
                   <p>
-                    Mission credit: Bronze {session.appliedCredits.bronze} · Silver {session.appliedCredits.silver} · Gold {session.appliedCredits.gold}
+                    Mission progress: Bronze {session.appliedCredits.bronze} · Silver {session.appliedCredits.silver} · Gold {session.appliedCredits.gold}
                   </p>
                 )}
                 {session.checkpointAwardedId && <p>Checkpoint: {session.checkpointAwardedId}</p>}

@@ -288,7 +288,7 @@ export default function MissionsPage() {
             Optional missions: {unlockChecklist.optionalDone}/{unlockChecklist.optionalTarget}
           </p>
           <p className="text-xs text-white/45">
-            Tier credits: Bronze {unlockChecklist.currentTier.bronze}/{unlockChecklist.sessions.bronze} · Silver {unlockChecklist.currentTier.silver}/{unlockChecklist.sessions.silver} · Gold {unlockChecklist.currentTier.gold}/{unlockChecklist.sessions.gold}
+            Tier progress: Bronze {unlockChecklist.currentTier.bronze}/{unlockChecklist.sessions.bronze} · Silver {unlockChecklist.currentTier.silver}/{unlockChecklist.sessions.silver} · Gold {unlockChecklist.currentTier.gold}/{unlockChecklist.sessions.gold}
           </p>
           <p className="text-xs text-white/45">
             Time gate: {unlockChecklist.currentMinutes}/{unlockChecklist.sessions.minutes} min · {unlockChecklist.currentDays}/{unlockChecklist.sessions.activeDays} days
@@ -369,9 +369,9 @@ export default function MissionsPage() {
                     </div>
 
                     <div className="mt-2 text-[11px] text-white/45 space-y-0.5">
-                      <p>Bronze credit {bronze}/{mission.exerciseTargets.bronzeReviews}</p>
-                      <p>Silver credit {silver}/{mission.exerciseTargets.silverDrills}</p>
-                      <p>Gold credit {gold}/{mission.exerciseTargets.goldConversations}</p>
+                      <p>Bronze progress {bronze}/{mission.exerciseTargets.bronzeReviews}</p>
+                      <p>Silver progress {silver}/{mission.exerciseTargets.silverDrills}</p>
+                      <p>Gold progress {gold}/{mission.exerciseTargets.goldConversations}</p>
                       {requiredCheckpointTotal > 0 && (
                         <p>Checkpoints {completedCheckpointCount}/{requiredCheckpointTotal}</p>
                       )}

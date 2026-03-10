@@ -327,7 +327,7 @@ export default function SessionSummary({
                 latestMissionOutcome.goldContractStatus === "partial" &&
                 !latestMissionOutcome.checkpointAwardedId && (
                   <p className="text-[11px] text-warn">
-                    Gold checkpoint status: partial completion. Mission credit applied, checkpoint not advanced.
+                    Gold checkpoint status: partial completion. Mission progress applied, checkpoint not advanced.
                   </p>
                 )}
               {latestMissionOutcome.mode === "deep" &&
@@ -343,7 +343,7 @@ export default function SessionSummary({
               )}
               {latestMissionOutcome.appliedCredits && (
                 <p className="text-[11px] text-white/45">
-                  Mission credit: Bronze {latestMissionOutcome.appliedCredits.bronze} · Silver{" "}
+                  Mission progress: Bronze {latestMissionOutcome.appliedCredits.bronze} · Silver{" "}
                   {latestMissionOutcome.appliedCredits.silver} · Gold{" "}
                   {latestMissionOutcome.appliedCredits.gold}
                 </p>
