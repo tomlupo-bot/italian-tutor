@@ -10,6 +10,8 @@ import type {
 import Flashcard, { type CardMode, speakItalian } from "@/components/Flashcard";
 import type { VocabCard } from "@/data/vocab";
 
+const CARD_MODE_KEY = "italian-tutor:flashcard-mode";
+
 interface Props {
   content: unknown;
   onComplete: (result: ExerciseResult) => void;
