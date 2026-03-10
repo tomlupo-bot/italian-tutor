@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CheckCircle2, Flag, Lock, Loader2, PlayCircle, Target } from "lucide-react";
 import { cn } from "@/lib/cn";
+import Badge from "@/components/Badge";
 import Link from "next/link";
 import { DashboardShell } from "@/components/layout/ScreenShell";
 import {
@@ -259,9 +260,9 @@ export default function MissionsPage() {
                     : "Preparing next mission content"}
               </Link>
               {runnableMode && (activeMission?.criticalErrorsCount ?? 0) === 0 && (
-                <span className="text-[11px] px-2 py-1 rounded-full bg-accent/10 text-accent-light border border-accent/20">
+                <Badge tone="accent" className="text-[11px] py-1">
                   Recommended now: {runnableMode === "quick" ? "Bronze" : runnableMode === "standard" ? "Silver" : "Gold"}
-                </span>
+                </Badge>
               )}
               {(activeMission?.criticalErrorsCount ?? 0) > 0 && (
                 <span className="text-[11px] text-warn">

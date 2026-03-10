@@ -9,6 +9,7 @@ import { CheckCircle, Loader2, XCircle, PartyPopper } from "lucide-react";
 import Link from "next/link";
 import SessionSummary from "../SessionSummary";
 import { prettySkillLabel } from "@/lib/labels";
+import Badge from "../Badge";
 import StudyProgressHeader from "../StudyProgressHeader";
 
 interface ExerciseFlowProps {
@@ -271,9 +272,9 @@ export default function ExerciseFlow({
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent-light">
+        <Badge tone="accent" className="text-xs border-0">
           {currentExercise.type.replace("_", " ")}
-        </span>
+        </Badge>
         {currentSkillLabel && (
           <span className="text-xs text-white/30">
             {currentSkillLabel}

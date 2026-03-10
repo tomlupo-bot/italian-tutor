@@ -6,6 +6,8 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import Link from "next/link";
 import { ArrowLeft, Clock3, Loader2, TriangleAlert } from "lucide-react";
+import Badge from "@/components/Badge";
+import { DashboardShell } from "@/components/layout/ScreenShell";
 
 type SessionRow = {
   _id: string;
@@ -57,7 +59,7 @@ export default function SessionHistoryPage() {
   }
 
   return (
-    <main className="min-h-screen max-w-lg mx-auto px-4 py-4 space-y-4">
+    <DashboardShell>
       <div className="flex items-center gap-3">
         <Link
           href="/calendar"
@@ -102,9 +104,9 @@ export default function SessionHistoryPage() {
             <section key={index} className="rounded-2xl border border-white/10 bg-card p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-accent-light">
+                  <Badge tone="accent" className="uppercase tracking-wider border-0">
                     {MODE_LABELS[session.mode ?? ""] ?? session.type}
-                  </p>
+                  </Badge>
                   <h2 className="text-sm font-semibold mt-0.5">Session {sessions.length - index}</h2>
                 </div>
                 <div className="text-right text-[11px] text-white/40">
@@ -154,6 +156,6 @@ export default function SessionHistoryPage() {
           ))}
         </div>
       )}
-    </main>
+    </DashboardShell>
   );
 }

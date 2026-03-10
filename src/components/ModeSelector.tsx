@@ -3,6 +3,7 @@
 import type { ExerciseMode } from "@/lib/exerciseTypes";
 import { MODE_TYPES } from "@/lib/exerciseTypes";
 import { cn } from "@/lib/cn";
+import Badge from "@/components/Badge";
 import { Trophy, RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -97,9 +98,9 @@ export default function ModeSelector({
       <div className="flex items-center justify-between px-1">
         <h2 className="text-sm font-medium text-white/50">Choose your tier</h2>
         {completedCount > 0 && (
-          <span className="text-xs px-2 py-0.5 rounded-full bg-success/20 text-success font-medium">
+          <Badge tone="success" className="text-xs">
             {completedCount}/3 complete
-          </span>
+          </Badge>
         )}
       </div>
       <div className="space-y-2">
@@ -130,14 +131,10 @@ export default function ModeSelector({
                     <span className="font-semibold">{label}</span>
                     <span className="text-xs text-white/40">{duration}</span>
                     {isSuggested && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/20 text-accent-light">
-                        Recommended
-                      </span>
+                      <Badge tone="accent" className="px-1.5 border-0">Recommended</Badge>
                     )}
                     {isCompleted && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/20 text-success">
-                        ✓ Done
-                      </span>
+                      <Badge tone="success" className="px-1.5 border-0">✓ Done</Badge>
                     )}
                   </div>
                   <p className="text-xs text-white/40 mt-0.5">
