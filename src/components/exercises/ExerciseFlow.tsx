@@ -9,6 +9,7 @@ import { CheckCircle, Loader2, XCircle, PartyPopper } from "lucide-react";
 import Link from "next/link";
 import SessionSummary from "../SessionSummary";
 import { prettySkillLabel } from "@/lib/labels";
+import StudyProgressHeader from "../StudyProgressHeader";
 
 interface ExerciseFlowProps {
   exercises: Exercise[];
@@ -231,18 +232,11 @@ export default function ExerciseFlow({
   if (isQuickMode) {
     return (
       <div className="w-full flex flex-col items-center gap-4 pb-20">
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-accent-light">Bronze Cards</h2>
-          <p className="text-white/40 text-sm">
-            {current + 1} / {total} cards
-          </p>
-          <div className="w-48 h-1.5 bg-white/5 rounded-full mt-2 mx-auto overflow-hidden">
-            <div
-              className="h-full bg-accent rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        <StudyProgressHeader
+          title="Bronze Cards"
+          current={current + 1}
+          total={total}
+        />
 
         <ExerciseErrorBoundary key={currentExercise._id} onSkip={skip}>
           <ExerciseRenderer

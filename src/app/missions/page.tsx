@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import { CheckCircle2, Flag, Lock, Loader2, PlayCircle, Target } from "lucide-react";
 import { cn } from "@/lib/cn";
 import Link from "next/link";
+import { DashboardShell } from "@/components/layout/ScreenShell";
 import {
   pickRunnableMode,
   type InventoryStatusResult,
@@ -166,7 +167,7 @@ export default function MissionsPage() {
   const hasCatalog = (catalog.missions?.length ?? 0) > 0;
 
   return (
-    <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
+    <DashboardShell>
       <section className="bg-card rounded-2xl border border-white/10 p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -426,6 +427,6 @@ export default function MissionsPage() {
           </section>
         );
       })()}
-    </main>
+    </DashboardShell>
   );
 }

@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Loader2, Flame, Zap, BookOpen, TriangleAlert } from "lucide-react";
 import { getTodayWarsaw } from "../lib/date";
 import { useRouter } from "next/navigation";
+import Badge from "@/components/Badge";
+import { DashboardShell } from "@/components/layout/ScreenShell";
 import type { ExerciseMode } from "@/lib/exerciseTypes";
 import {
   inventoryToExerciseCounts,
@@ -199,7 +201,7 @@ export default function Home() {
   // First-run welcome screen
   if (isFirstRun) {
     return (
-      <main className="max-w-lg mx-auto px-4 py-12 flex flex-col items-center gap-6 text-center">
+      <DashboardShell contentClassName="py-12 flex flex-col items-center gap-6 text-center">
         <div className="space-y-2">
           <p className="text-4xl">🇮🇹</p>
           <h1 className="text-2xl font-bold">Ciao! Welcome to Marco</h1>
@@ -243,12 +245,12 @@ export default function Home() {
             View Progress
           </Link>
         )}
-      </main>
+      </DashboardShell>
     );
   }
 
   return (
-    <main className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-5">
+    <DashboardShell contentClassName="gap-5">
       <div className="rounded-2xl border border-white/10 bg-card/70 px-4 py-2.5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -273,15 +275,15 @@ export default function Home() {
         <div className="flex items-center justify-between gap-2">
           <p className="text-[11px] text-accent-light uppercase tracking-wider">Mission</p>
           {missionStatus === "blocked" ? (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-warn/20 text-warn">Blocked</span>
+            <Badge tone="status" status="blocked">Blocked</Badge>
           ) : missionStatus === "completed" ? (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/20 text-success">Completed</span>
+            <Badge tone="status" status="completed">Completed</Badge>
           ) : activeProgress?.mission?.level ? (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent-light">
+            <Badge tone="level" level={activeProgress.mission.level}>
               {activeProgress.mission.level}
-            </span>
+            </Badge>
           ) : (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/50">None</span>
+            <Badge>None</Badge>
           )}
         </div>
         <h2 className="text-base font-semibold">
@@ -345,9 +347,7 @@ export default function Home() {
                       </div>
                       <div className="flex items-center gap-2 text-right">
                         {recommended && (
-                          <span className="text-[10px] rounded-full bg-accent/20 px-1.5 py-0.5 text-accent-light">
-                            Now
-                          </span>
+                          <Badge tone="accent" className="px-1.5 border-0">Now</Badge>
                         )}
                         <p className="text-[10px] text-white/35">
                           {count > 0 ? `${count} ready` : "Replay"}
@@ -423,6 +423,6 @@ export default function Home() {
           </p>
         </Link>
       </div>
-    </main>
+    </DashboardShell>
   );
 }

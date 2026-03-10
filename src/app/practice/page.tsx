@@ -10,6 +10,8 @@ import { cn } from "../../lib/cn";
 import { Loader2, X, ChevronDown, ArrowLeft } from "lucide-react";
 import ExerciseErrorBoundary from "../../components/exercises/ExerciseErrorBoundary";
 import { StudyShell } from "../../components/layout/ScreenShell";
+import Badge from "../../components/Badge";
+import StudyProgressHeader from "../../components/StudyProgressHeader";
 import Link from "next/link";
 
 const MODES: { key: CardMode; label: string; icon: string }[] = [
@@ -418,34 +420,23 @@ export default function PracticePage() {
         ))}
       </div>
 
-      <div className="text-center">
-        <h2 className="text-lg font-semibold text-accent-light">SRS Practice</h2>
-        <p className="text-white/40 text-sm">
-          {idx + 1} / {cards.length} {studyAll ? "cards" : "due"}
-        </p>
-        <div className="w-48 h-1.5 bg-white/5 rounded-full mt-2 mx-auto">
-          <div
-            className="h-full bg-accent rounded-full transition-all"
-            style={{ width: `${(reviewed / cards.length) * 100}%` }}
-          />
-        </div>
-      </div>
+      <StudyProgressHeader
+        title="SRS Practice"
+        current={idx + 1}
+        total={cards.length}
+        label={studyAll ? "cards" : "due"}
+      />
 
       <div className="flex gap-2 items-center">
         {currentCard.level && (
-          <span
-            className={cn(
-              "text-[10px] px-2 py-0.5 rounded-full font-medium border",
-              LEVEL_COLORS[currentCard.level] || "bg-white/10 text-white/50 border-white/20",
-            )}
-          >
+          <Badge tone="level" level={currentCard.level}>
             {currentCard.level}
-          </span>
+          </Badge>
         )}
         {currentCard.source === "correction" && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-warn/20 text-warn">
+          <Badge tone="source" source="correction">
             From your mistakes
-          </span>
+          </Badge>
         )}
       </div>
 

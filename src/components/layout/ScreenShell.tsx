@@ -88,3 +88,25 @@ export function MissionShell({
     </AppScreenShell>
   );
 }
+
+interface DashboardShellProps {
+  children: ReactNode;
+  className?: string;
+  contentClassName?: string;
+}
+
+export function DashboardShell({
+  children,
+  className,
+  contentClassName,
+}: DashboardShellProps) {
+  return (
+    <AppScreenShell
+      width="narrow"
+      className={className}
+      contentClassName={cn("py-4 flex flex-col gap-4", contentClassName)}
+    >
+      {children}
+    </AppScreenShell>
+  );
+}

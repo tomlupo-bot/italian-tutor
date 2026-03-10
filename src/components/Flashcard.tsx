@@ -5,6 +5,7 @@ import type { VocabCard } from "../data/vocab";
 import { cn } from "../lib/cn";
 import { Volume2 } from "lucide-react";
 import { playItalianTts } from "../lib/audioTts";
+import Badge from "./Badge";
 
 export type CardMode = "classic" | "reverse" | "listening" | "cloze";
 
@@ -50,17 +51,10 @@ export default function Flashcard({
     [card.ex, speechRate],
   );
 
-  const levelColors: Record<string, string> = {
-    A1: "bg-success/20 text-success",
-    A2: "bg-accent/20 text-accent-light",
-    B1: "bg-warn/20 text-warn",
-    B2: "bg-danger/20 text-danger",
-  };
-
   const levelBadge = card.level ? (
-    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", levelColors[card.level] || "bg-white/5 text-white/30")}>
+    <Badge tone="level" level={card.level} className="px-1.5">
       {card.level}
-    </span>
+    </Badge>
   ) : null;
 
   if (mode === "classic") {
@@ -70,7 +64,7 @@ export default function Flashcard({
           <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-7">
             <p className="text-2xl font-semibold text-center">{card.it}</p>
             <div className="flex items-center gap-2 mt-3">
-              {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
+              {card.tag && <Badge>{card.tag}</Badge>}
               {levelBadge}
             </div>
             <div className="flex items-center gap-3 mt-4">
@@ -101,7 +95,7 @@ export default function Flashcard({
           <div className="absolute inset-0 backface-hidden bg-card rounded-2xl border border-white/10 flex flex-col items-center justify-center p-7">
             <p className="text-2xl font-semibold text-center text-accent-light">{card.en}</p>
             <div className="flex items-center gap-2 mt-3">
-              {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
+              {card.tag && <Badge>{card.tag}</Badge>}
               {levelBadge}
             </div>
             <p className="text-white/30 text-sm mt-4">Can you say it in Italian?</p>
@@ -160,7 +154,7 @@ export default function Flashcard({
           <p className="text-xs text-white/30 mb-2">📝 Fill the blank</p>
           <p className="text-lg text-center leading-relaxed">&ldquo;{clozeSentence}&rdquo;</p>
           <div className="flex items-center gap-2 mt-3">
-            {card.tag && <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-white/30">{card.tag}</span>}
+            {card.tag && <Badge>{card.tag}</Badge>}
             {levelBadge}
           </div>
           <p className="text-white/30 text-sm mt-3">Tap to reveal</p>

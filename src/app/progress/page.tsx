@@ -22,6 +22,7 @@ import { cn } from "@/lib/cn";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useMemo } from "react";
+import { DashboardShell } from "@/components/layout/ScreenShell";
 import type {
   ActiveMissionResult,
   LearnerMission,
@@ -146,7 +147,7 @@ export default function ProgressPage() {
   const b2 = analytics.b2Activation;
 
   return (
-    <main className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-4">
+    <DashboardShell>
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/" className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white">
@@ -481,6 +482,6 @@ export default function ProgressPage() {
           </div>
         </details>
       )}
-    </main>
+    </DashboardShell>
   );
 }

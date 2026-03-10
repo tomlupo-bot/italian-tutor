@@ -8,6 +8,7 @@ import Link from "next/link";
 import { cn } from "../../lib/cn";
 import { getNowWarsaw } from "../../lib/date";
 import ModeSelector from "../../components/ModeSelector";
+import { DashboardShell } from "../../components/layout/ScreenShell";
 import { useRouter } from "next/navigation";
 import type { ExerciseMode } from "@/lib/exerciseTypes";
 import {
@@ -195,7 +196,7 @@ export default function CalendarPage() {
   ]);
 
   return (
-    <main className="min-h-screen max-w-lg mx-auto px-4 py-4 space-y-4">
+    <DashboardShell>
       {/* Month nav */}
       <div className="flex items-center justify-between">
         <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/5 transition" aria-label="Previous month">
@@ -322,6 +323,6 @@ export default function CalendarPage() {
           )}
         </div>
       )}
-    </main>
+    </DashboardShell>
   );
 }
