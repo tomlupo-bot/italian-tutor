@@ -200,7 +200,12 @@ export default function SessionPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col max-w-lg mx-auto pb-16">
+    <main
+      className={[
+        "min-h-screen flex flex-col mx-auto pb-16 w-full",
+        isQuickMode ? "max-w-xl" : "max-w-lg",
+      ].join(" ")}
+    >
       {/* Header */}
       <div
         className={[

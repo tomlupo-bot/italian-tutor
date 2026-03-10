@@ -26,7 +26,7 @@ const MODE_LABEL: Record<ExerciseMode, string> = {
 };
 
 const MODE_COPY: Record<ExerciseMode, { subtitle: string; emoji: string }> = {
-  quick: { subtitle: "Review", emoji: "🥉" },
+  quick: { subtitle: "Card", emoji: "🥉" },
   standard: { subtitle: "Drills", emoji: "🥈" },
   deep: { subtitle: "Conversation", emoji: "🥇" },
 };
@@ -276,8 +276,10 @@ export default function Home() {
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-warn/20 text-warn">Blocked</span>
           ) : missionStatus === "completed" ? (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/20 text-success">Completed</span>
-          ) : missionStatus === "in_progress" ? (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent-light">In progress</span>
+          ) : activeProgress?.mission?.level ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/20 text-accent-light">
+              {activeProgress.mission.level}
+            </span>
           ) : (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/50">None</span>
           )}
