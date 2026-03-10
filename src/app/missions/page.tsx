@@ -133,6 +133,7 @@ export default function MissionsPage() {
         : null,
     [recommendedMode, inventoryStatus, dueCards?.length],
   );
+  const nextLevel = roadmapData?.roadmap?.nextLevel;
 
   useEffect(() => {
     if (!unlocked.has(selectedLevel)) {
@@ -277,7 +278,10 @@ export default function MissionsPage() {
 
       {unlockChecklist && (
         <section className="bg-card rounded-2xl border border-white/10 p-4 space-y-2">
-          <h2 className="text-sm font-semibold">Unlock Next Level ({currentLevel})</h2>
+          <h2 className="text-sm font-semibold">Unlock {nextLevel ?? "Next Level"}</h2>
+          <p className="text-xs text-white/45">
+            Requirements from your {currentLevel} track
+          </p>
           <p className="text-xs text-white/45">
             Required missions: {unlockChecklist.requiredDone}/{unlockChecklist.requiredTotal}
           </p>
@@ -288,15 +292,15 @@ export default function MissionsPage() {
             Optional missions: {unlockChecklist.optionalDone}/{unlockChecklist.optionalTarget}
           </p>
           <p className="text-xs text-white/45">
-            Tier progress: Bronze {unlockChecklist.currentTier.bronze}/{unlockChecklist.sessions.bronze} · Silver {unlockChecklist.currentTier.silver}/{unlockChecklist.sessions.silver} · Gold {unlockChecklist.currentTier.gold}/{unlockChecklist.sessions.gold}
+            Level totals: Bronze {Math.min(unlockChecklist.currentTier.bronze, unlockChecklist.sessions.bronze)}/{unlockChecklist.sessions.bronze} · Silver {Math.min(unlockChecklist.currentTier.silver, unlockChecklist.sessions.silver)}/{unlockChecklist.sessions.silver} · Gold {Math.min(unlockChecklist.currentTier.gold, unlockChecklist.sessions.gold)}/{unlockChecklist.sessions.gold}
           </p>
           <p className="text-xs text-white/45">
-            Time gate: {unlockChecklist.currentMinutes}/{unlockChecklist.sessions.minutes} min · {unlockChecklist.currentDays}/{unlockChecklist.sessions.activeDays} days
+            Time and consistency: {Math.min(unlockChecklist.currentMinutes, unlockChecklist.sessions.minutes)}/{unlockChecklist.sessions.minutes} min · {Math.min(unlockChecklist.currentDays, unlockChecklist.sessions.activeDays)}/{unlockChecklist.sessions.activeDays} days
           </p>
           <div className="pt-1 border-t border-white/10 space-y-1">
             {unlockChecklist.skillChecks.slice(0, 6).map((skill) => (
               <p key={skill.skillKey} className="text-[11px] text-white/45">
-                {prettySkill(skill.skillKey)}: {skill.current}/{skill.minPoints}
+                {prettySkill(skill.skillKey)}: {Math.min(skill.current, skill.minPoints)}/{skill.minPoints}
               </p>
             ))}
           </div>
