@@ -580,7 +580,7 @@ function buildMissionLibrary(mission) {
       tags: mission.tags,
       errorFocus: [focusFallback],
       variantKey: `srs-${slug(row[0])}`,
-      content: { front: row[0], back: row[1], example: row[2], tag, level: mission.level },
+      content: { front: row[0], back: row[1], example: row[2], tag, level: mission.level, direction: "it_to_en" },
       active: true,
     });
   }
@@ -599,7 +599,7 @@ function buildMissionLibrary(mission) {
       tags: mission.tags,
       errorFocus: [focusFallback],
       variantKey: `srs-fallback-${slug(row[0])}-${countType(entries, "srs")}`,
-      content: { front: row[0], back: row[1], example: row[2], tag, level: mission.level },
+      content: { front: row[0], back: row[1], example: row[2], tag, level: mission.level, direction: "it_to_en" },
       active: true,
     });
   }

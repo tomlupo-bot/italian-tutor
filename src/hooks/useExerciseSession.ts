@@ -18,6 +18,7 @@ import type {
   ExerciseMode,
   ExerciseResult,
   SrsContent,
+  SrsResult,
   PatternDrillContent,
   PatternDrillResult,
   SpeedTranslationContent,
@@ -513,6 +514,8 @@ export function useExerciseSession({
         } else {
           // Mission SRS exercise — upsert into cards table for SM-2 tracking
           const content = getSrsText(currentExercise.content);
+          const resultDirection =
+            (result as SrsResult).direction ?? content?.direction ?? "it_to_en";
           if (content?.front && content.back) {
             upsertCard({
               it: content.front,
@@ -520,6 +523,7 @@ export function useExerciseSession({
               source: "lesson" as const,
               tag: currentExercise.missionId ?? undefined,
               level: currentExercise.difficulty ?? "A1",
+              direction: resultDirection,
               quality: sm2Quality,
             }).catch(() => {});
           }

@@ -504,18 +504,19 @@ export const generateExercises = mutation({
     }
     const shuffledVocab = stableShuffle(vocabPool, seed + "srs");
     const srsCount = Math.max(0, Math.min(mission.exerciseMix.srs - authoredCountForType(rows, "srs"), shuffledVocab.length, 12));
-    for (let i = 0; i < srsCount; i++) {
-      rows.push({
-        date,
-        type: "srs",
-        order: order++,
-        content: {
-          front: shuffledVocab[i].it,
-          back: shuffledVocab[i].en,
-          example: shuffledVocab[i].example ?? shuffledVocab[i].it,
-          tag: shuffledVocab[i].tag,
-          level: mission.level,
-        },
+      for (let i = 0; i < srsCount; i++) {
+        rows.push({
+          date,
+          type: "srs",
+          order: order++,
+          content: {
+            front: shuffledVocab[i].it,
+            back: shuffledVocab[i].en,
+            example: shuffledVocab[i].example ?? shuffledVocab[i].it,
+            tag: shuffledVocab[i].tag,
+            direction: "it_to_en",
+            level: mission.level,
+          },
         skillId: "vocab_core",
         missionId,
         tier: "quick",

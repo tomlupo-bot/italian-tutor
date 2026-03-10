@@ -1,6 +1,17 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+const CARD_DIRECTIONS = ["it_to_en", "en_to_it"] as const;
+type CardDirection = (typeof CARD_DIRECTIONS)[number];
+const DEFAULT_DIRECTION: CardDirection = "it_to_en";
+
+function resolveDirection(value?: string): CardDirection {
+  if (value && (CARD_DIRECTIONS as readonly string[]).includes(value)) {
+    return value as CardDirection;
+  }
+  return DEFAULT_DIRECTION;
+}
+
 // Warsaw timezone helper
 function warsawToday(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
@@ -95,13 +106,16 @@ export const add = mutation({
       v.literal("correction"),
       v.literal("manual")
     ),
+    direction: v.optional(v.union(v.literal("it_to_en"), v.literal("en_to_it"))),
     skillId: v.optional(v.string()),
     errorCategory: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const today = warsawToday();
+    const direction = resolveDirection(args.direction);
     return await ctx.db.insert("cards", {
       ...args,
+      direction,
       ease: 2.5,
       interval: 0,
       repetitions: 0,
@@ -126,6 +140,7 @@ export const bulkAdd = mutation({
           v.literal("correction"),
           v.literal("manual")
         ),
+        direction: v.optional(v.union(v.literal("it_to_en"), v.literal("en_to_it"))),
         skillId: v.optional(v.string()),
         errorCategory: v.optional(v.string()),
       })
@@ -135,15 +150,22 @@ export const bulkAdd = mutation({
     const today = warsawToday();
     let added = 0;
     for (const card of args.cards) {
+      const direction = resolveDirection(card.direction);
       // Deduplicate by Italian text — skip if card already exists
       const existing = await ctx.db
         .query("cards")
-        .withIndex("by_it", (q) => q.eq("it", card.it))
+        .withIndex("by_it_direction", (q) =>
+          q.and(
+            q.eq("it", card.it),
+            q.eq("direction", direction)
+          )
+        )
         .first();
       if (existing) continue;
 
       await ctx.db.insert("cards", {
         ...card,
+        direction,
         ease: 2.5,
         interval: 0,
         repetitions: 0,
@@ -162,9 +184,12 @@ export const updateExplanation = mutation({
     en: v.string(),
   },
   handler: async (ctx, args) => {
+    const direction = DEFAULT_DIRECTION;
     const card = await ctx.db
       .query("cards")
-      .withIndex("by_it", (q) => q.eq("it", args.it))
+      .withIndex("by_it_direction", (q) =>
+        q.and(q.eq("it", args.it), q.eq("direction", direction))
+      )
       .first();
     if (!card) return { updated: false };
     await ctx.db.patch(card._id, { en: args.en });
@@ -213,6 +238,7 @@ export const migrateFromLocalStorage = mutation({
         example: card.example,
         tag: card.tag,
         source: "builtin" as const,
+        direction: DEFAULT_DIRECTION,
         ease: card.ease ?? 2.5,
         interval: card.interval ?? 0,
         repetitions: card.repetitions ?? 0,
@@ -334,15 +360,18 @@ export const upsert = mutation({
       v.literal("correction"),
       v.literal("manual")
     ),
+    direction: v.optional(v.union(v.literal("it_to_en"), v.literal("en_to_it"))),
     tag: v.optional(v.string()),
     level: v.optional(v.string()),
     quality: v.number(), // SM-2 quality: 1 (again), 3 (good), 5 (easy)
   },
   handler: async (ctx, args) => {
-    // Try to find existing card by Italian text (indexed)
+    const direction = resolveDirection(args.direction);
     const existing = await ctx.db
       .query("cards")
-      .withIndex("by_it", (q) => q.eq("it", args.it))
+      .withIndex("by_it_direction", (q) =>
+        q.and(q.eq("it", args.it), q.eq("direction", direction))
+      )
       .first();
 
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
@@ -397,6 +426,7 @@ export const upsert = mutation({
         it: args.it,
         en: args.en,
         source: args.source,
+        direction,
         tag: args.tag,
         level: args.level,
         ease: 2.5,

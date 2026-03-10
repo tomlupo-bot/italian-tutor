@@ -293,6 +293,7 @@ export const seedCards = mutation({
         interval: 0,
         repetitions: 0,
         nextReview: today,
+        direction: "it_to_en",
       });
       count++;
     }
@@ -342,6 +343,7 @@ export const seedCurriculum = mutation({
         interval: 0,
         repetitions: 0,
         nextReview: today,
+        direction: "it_to_en",
       });
       added++;
     }
@@ -411,6 +413,7 @@ export const resetAppState = mutation({
         interval: 0,
         repetitions: 0,
         nextReview: today,
+        direction: "it_to_en",
       });
       seededCards++;
     }
