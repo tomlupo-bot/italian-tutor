@@ -136,15 +136,24 @@ export default function Home() {
     const bronzeTarget = activeProgress.mission.exerciseTargets.bronzeReviews || 0;
     const silverTarget = activeProgress.mission.exerciseTargets.silverDrills || 0;
     const goldTarget = activeProgress.mission.exerciseTargets.goldConversations || 0;
-    const totalTarget = bronzeTarget + silverTarget + goldTarget;
     const bronzeDone = Math.min(activeProgress.active.credits?.bronze ?? 0, bronzeTarget);
     const silverDone = Math.min(activeProgress.active.credits?.silver ?? 0, silverTarget);
     const goldDone = Math.min(activeProgress.active.credits?.gold ?? 0, goldTarget);
-    const totalDone = bronzeDone + silverDone + goldDone;
+    const tierPercents = [
+      bronzeTarget > 0 ? bronzeDone / bronzeTarget : 0,
+      silverTarget > 0 ? silverDone / silverTarget : 0,
+      goldTarget > 0 ? goldDone / goldTarget : 0,
+    ];
+    const completedTiers = tierPercents.filter((value, index) => {
+      const target = [bronzeTarget, silverTarget, goldTarget][index];
+      return target > 0;
+    });
+    const percent =
+      completedTiers.length > 0
+        ? Math.round((completedTiers.reduce((sum, value) => sum + value, 0) / completedTiers.length) * 100)
+        : 0;
     return {
-      totalDone,
-      totalTarget,
-      percent: totalTarget > 0 ? Math.round((totalDone / totalTarget) * 100) : 0,
+      percent,
     };
   }, [activeProgress]);
 
