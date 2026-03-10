@@ -343,7 +343,7 @@ export default function ProgressPage() {
                 <div key={level} className="space-y-1">
                   <div className="flex items-center justify-between text-[11px] text-white/45">
                     <span>{level}</span>
-                    <span>{data.mastered}/{data.total} secure</span>
+                    <span>{data.mastered}/{data.total} mastered</span>
                   </div>
                   <div className="h-2 rounded-full bg-white/5">
                     <div
