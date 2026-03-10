@@ -121,6 +121,7 @@ export default defineSchema({
       v.literal("correction"),
       v.literal("manual")
     ),
+    direction: v.union(v.literal("it_to_en"), v.literal("en_to_it")),
     // SRS fields (SM-2)
     ease: v.number(), // default 2.5
     interval: v.number(), // days
@@ -135,7 +136,8 @@ export default defineSchema({
     .index("by_next_review", ["nextReview"])
     .index("by_tag", ["tag"])
     .index("by_level", ["level"])
-    .index("by_it", ["it"]),
+    .index("by_it", ["it"])
+    .index("by_it_direction", ["it", "direction"]),
 
   missionExerciseLibrary: defineTable({
     missionId: v.string(),

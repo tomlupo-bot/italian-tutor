@@ -15,6 +15,8 @@ export type ExerciseSource =
   | "ad_hoc"
   | "conversation_variant";
 
+export type FlashcardDirection = "it_to_en" | "en_to_it";
+
 /** Which exercise types appear in each mode */
 /** Each tier has UNIQUE exercise types — no overlap between tiers */
 export const MODE_TYPES: Record<ExerciseMode, ExerciseType[]> = {
@@ -44,6 +46,7 @@ export interface SrsContent {
   example?: string;
   tag?: string;
   level?: string;
+  direction?: FlashcardDirection;
 }
 
 export interface ClozeContent {
@@ -126,6 +129,7 @@ export type ExerciseContent =
 export interface SrsResult {
   quality: number; // 0-5 SM-2
   time_ms: number;
+  direction?: FlashcardDirection;
 }
 
 export interface ClozeResult {

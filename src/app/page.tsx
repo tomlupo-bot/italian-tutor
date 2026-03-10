@@ -304,7 +304,7 @@ export default function Home() {
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[11px] text-white/40">
                 <span>Mission progress</span>
-                <span>{missionProgress?.totalDone ?? 0}/{missionProgress?.totalTarget ?? 0}</span>
+                <span>{missionProgress?.percent ?? 0}%</span>
               </div>
               <div className="h-2 rounded-full bg-white/5 overflow-hidden">
                 <div
@@ -315,20 +315,7 @@ export default function Home() {
             </div>
 
             <div className="space-y-1.5 pt-1">
-              {(["quick", "standard", "deep"] as ExerciseMode[]).map((mode) => {
-                const count = (["quick", "standard", "deep"].includes(mode)
-                  ? mode === "quick"
-                    ? inventoryStatus?.counts.quickTotal ?? exerciseCounts.srs
-                    : mode === "standard"
-                      ? inventoryStatus?.counts.standardTotal ?? (
-                          exerciseCounts.cloze +
-                          exerciseCounts.word_builder +
-                          exerciseCounts.pattern_drill +
-                          exerciseCounts.speed_translation +
-                          exerciseCounts.error_hunt
-                        )
-                      : inventoryStatus?.counts.deepTotal ?? (exerciseCounts.conversation + exerciseCounts.reflection)
-                  : 0);
+            {(["quick", "standard", "deep"] as ExerciseMode[]).map((mode) => {
                 const unavailable = !activeProgress.mission;
                 const recommended = runnableRecommendedMode === mode && !unavailable && !activeProgress.blocker;
                 return (
@@ -351,19 +338,28 @@ export default function Home() {
                           <p className="text-[10px] text-white/40">{MODE_COPY[mode].subtitle}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-right">
-                        {recommended && (
-                          <Badge tone="accent" className="px-1.5 border-0">Now</Badge>
-                        )}
-                        <p className="text-[10px] text-white/35">
-                          {count > 0 ? `${count} ready` : "Replay"}
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-2 text-right">
+                      {recommended && (
+                        <Badge tone="accent" className="px-1.5 border-0">
+                          Now
+                        </Badge>
+                      )}
+                      <p className="text-[10px] text-white/35">
+                        <span className="uppercase tracking-wide mr-1">Sessions remaining</span>
+                        <Badge tone="level" className="px-2 py-0.5 text-[10px]">
+                          {Math.max(
+                            (modeProgress?.[mode].target ?? 0) -
+                              (modeProgress?.[mode].done ?? 0),
+                            0,
+                          )}
+                        </Badge>
+                      </p>
+                    </div>
                     </div>
                     <div className="mt-1.5 space-y-1">
                       <div className="flex items-center justify-between text-[10px] text-white/35">
                         <span className="uppercase tracking-wide">Progress</span>
-                        <span>{modeProgress?.[mode].done ?? 0}/{modeProgress?.[mode].target ?? 0}</span>
+                        <span>{modeProgress?.[mode].percent ?? 0}%</span>
                       </div>
                       <div className="h-1 rounded-full bg-white/5 overflow-hidden">
                         <div
@@ -374,7 +370,7 @@ export default function Home() {
                     </div>
                   </button>
                 );
-              })}
+            })}
             </div>
 
             <p className="text-[11px] text-white/40">

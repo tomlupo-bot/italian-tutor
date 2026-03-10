@@ -1,4 +1,4 @@
-import type { Exercise, ExerciseMode } from "@/lib/exerciseTypes";
+import type { Exercise, ExerciseMode, FlashcardDirection } from "@/lib/exerciseTypes";
 
 interface DueCard {
   _id: string;
@@ -7,9 +7,10 @@ interface DueCard {
   level?: string;
   tag?: string;
   example?: string;
+  direction?: FlashcardDirection;
 }
 
-const BRONZE_TOTAL = 15;
+const BRONZE_TOTAL = 20;
 const BRONZE_REVIEW_CAP = 3;
 const SILVER_TARGET_EFFORT = 10.5;
 const SILVER_MAX_EXERCISES = 10;
@@ -34,8 +35,8 @@ export const SESSION_BLUEPRINTS: Record<
 > = {
   quick: {
     duration: "~5 min",
-    summary: "15 cards with up to 3 due-review repeats.",
-    sessionLabel: "15-card recall sprint",
+    summary: "20 cards with up to 3 due-review repeats.",
+    sessionLabel: "20-card recall sprint",
   },
   standard: {
     duration: "~10 min",
@@ -69,6 +70,7 @@ function toDueCardExercise(date: string, card: DueCard, order: number): Exercise
       tag: card.tag,
       level: card.level,
       example: card.example,
+      direction: card.direction ?? "it_to_en",
     },
     difficulty: card.level ?? "A1",
     completed: false,

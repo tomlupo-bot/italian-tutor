@@ -9,13 +9,8 @@ import { CheckCircle, Loader2, XCircle, PartyPopper } from "lucide-react";
 import Link from "next/link";
 import SessionSummary from "../SessionSummary";
 import { prettySkillLabel } from "@/lib/labels";
-import { resultScore, summarizeResults } from "@/lib/exerciseResults";
-import { computeSessionSkillImpact } from "@/lib/sessionSkillImpact";
-import sessionContracts from "@/lib/sessionContracts";
 import Badge from "../Badge";
 import StudyProgressHeader from "../StudyProgressHeader";
-
-const { getConversationMetrics } = sessionContracts;
 
 interface ExerciseFlowProps {
   exercises: Exercise[];
@@ -34,11 +29,11 @@ export default function ExerciseFlow({
     total,
     progress,
     currentExercise,
-    sessionExercises,
     done,
     saving,
     error,
     results,
+    resultsRef,
     sessionErrors,
     missionCompleted,
     submitResult,
@@ -46,7 +41,20 @@ export default function ExerciseFlow({
   } = useExerciseSession({ exercises, mode, date });
 
   const contract = useMemo(() => {
-    const { totalItems, accuracy } = summarizeResults(results.values());
+    let totalItems = 0;
+    let correctItems = 0;
+    for (const r of results.values()) {
+      if ("correct" in r && typeof (r as { correct: boolean }).correct === "boolean") {
+        totalItems += 1;
+        if ((r as { correct: boolean }).correct) correctItems += 1;
+      } else if ("scores" in r && Array.isArray((r as { scores: boolean[] }).scores)) {
+        for (const s of (r as { scores: boolean[] }).scores) {
+          totalItems += 1;
+          if (s) correctItems += 1;
+        }
+      }
+    }
+    const accuracy = totalItems > 0 ? correctItems / totalItems : 0;
     const completedAll = results.size >= total && total > 0;
 
     if (mode === "standard") {
@@ -64,10 +72,26 @@ export default function ExerciseFlow({
     }
 
     if (mode === "deep") {
-      const { usedTargets, userTurns, completedAll } = getConversationMetrics(
-        sessionExercises,
-        results,
-      );
+      const convEx = exercises.find((ex) => ex.type === "conversation");
+      const convResult = convEx ? results.get(convEx._id) : null;
+      const userTurns = convResult && "messages" in convResult
+        ? (convResult as { messages: Array<{ role: string; content: string }> }).messages
+            .filter((m) => m.role === "user" && m.content.trim()).length
+        : 0;
+      const targetPhrases =
+        convEx && convEx.type === "conversation"
+          ? ((convEx.content as { target_phrases?: string[] }).target_phrases ?? [])
+          : [];
+      const userText =
+        convResult && "messages" in convResult
+          ? (convResult as { messages: Array<{ role: string; content: string }> }).messages
+              .filter((m) => m.role === "user")
+              .map((m) => m.content.toLowerCase())
+              .join(" ")
+          : "";
+      const usedTargets = targetPhrases.filter((p) =>
+        userText.includes(p.toLowerCase()),
+      ).length;
 
       return {
         headline: "Marco Contract: Immersive Gold Roleplay",
@@ -91,19 +115,21 @@ export default function ExerciseFlow({
       headline: "Marco Contract",
       rules: [{ label: "Finish the session", pass: completedAll }],
     };
-  }, [mode, results, sessionExercises, total]);
+  }, [exercises, mode, results, total]);
   const currentSkillLabel = prettySkillLabel(currentExercise?.skillId);
 
   // ── Completion screen ──────────────────────────────────────────────
   if (done) {
-    const { accuracy } = summarizeResults(results.values());
-    const topLevelCorrect = Array.from(results.values()).filter(
-      (result) => resultScore(result) >= 0.6,
-    ).length;
-    const sessionSkillImpact = computeSessionSkillImpact(sessionExercises, results);
+    const correctCount = Array.from(resultsRef.current.values()).filter((r) => {
+      if ("correct" in r && typeof (r as { correct: boolean }).correct === "boolean")
+        return (r as { correct: boolean }).correct;
+      if ("scores" in r && Array.isArray((r as { scores: boolean[] }).scores))
+        return (r as { scores: boolean[] }).scores.every(Boolean);
+      return false;
+    }).length;
 
     return (
-      <div className="max-w-lg mx-auto px-4 py-8 flex flex-col items-center gap-6">
+      <div className="max-w-xl mx-auto px-4 py-8 flex flex-col items-center gap-6">
         {saving ? (
           <>
             <Loader2 size={48} className="text-accent animate-spin" />
@@ -155,11 +181,9 @@ export default function ExerciseFlow({
             <SessionSummary
               mode={mode}
               exercisesCompleted={results.size}
-              correctCount={topLevelCorrect}
+              correctCount={correctCount}
               errorsCount={sessionErrors.length}
-              accuracyPercent={Math.round(accuracy * 100)}
               sessionDate={date}
-              sessionSkillImpact={sessionSkillImpact}
             />
 
             {/* Errors to review */}
@@ -195,7 +219,7 @@ export default function ExerciseFlow({
   // ── Active exercise ────────────────────────────────────────────────
   if (!currentExercise) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-8 text-center">
+      <div className="max-w-xl mx-auto px-4 py-8 text-center">
         <p className="text-white/50">No exercises available</p>
         <Link
           href="/"
@@ -228,7 +252,7 @@ export default function ExerciseFlow({
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-4 pb-20">
+    <div className="max-w-xl mx-auto px-4 py-4 flex flex-col gap-4 pb-20">
       <div className="rounded-xl border border-white/10 bg-card/40 px-3 py-2">
         <p className="text-[10px] text-accent-light uppercase tracking-wider">
           Session Contract
