@@ -70,6 +70,8 @@ function weightedMissionProgress(mission: LearnerMission | undefined, catalogMis
   return clampPct(((bronzePct + silverPct + goldPct) / 3) * 100);
 }
 
+const SKILL_LEVELS = ["A1", "A2", "B1", "B2"] as const;
+
 export default function ProgressPage() {
   const router = useRouter();
   const analytics = useProgressAnalytics();
@@ -326,6 +328,35 @@ export default function ProgressPage() {
           Choose a session level to move the mission forward. Once a level reaches 100%, you can still replay it for practice, but it will not add more mission progress.
         </p>
       </section>
+
+      {SKILL_LEVELS.some((level) => analytics.levels[level]) && (
+        <section className="rounded-2xl border border-white/10 bg-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={14} className="text-accent-light" />
+            <h2 className="text-sm font-medium text-white/70">Skills progression</h2>
+          </div>
+          <div className="space-y-3">
+            {SKILL_LEVELS.map((level) => {
+              const data = analytics.levels[level];
+              if (!data) return null;
+              return (
+                <div key={level} className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-white/45">
+                    <span>{level}</span>
+                    <span>{data.mastered}/{data.total} secure</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/5">
+                    <div
+                      className="h-2 rounded-full bg-accent transition-all"
+                      style={{ width: `${data.masteredPct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-white/10 bg-card p-4 space-y-3">
         <div className="flex items-center justify-between">
