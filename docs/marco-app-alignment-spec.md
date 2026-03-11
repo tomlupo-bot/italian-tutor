@@ -480,7 +480,341 @@ The repo now includes the first concrete runtime pieces of this contract:
   - `staleAfter`
 - inventory readiness query:
   - `api.exercises.getInventoryStatus`
+  - `api.exercises.getMissionInventoryStatus`
 
-The app has been updated to use inventory readiness on Home, Session, and Mission Hub.
+The app currently uses mission-scoped inventory readiness on Home, Session, and Current Mission via:
 
-Note: there is no standalone "Marco skill" file in the current Codex skill registry for this repo. This document is the maintained source for Marco/app alignment until a dedicated skill is added.
+- `api.exercises.getMissionInventoryStatus`
+
+The broader `api.exercises.getInventoryStatus` query exists as a general inventory/readiness primitive, but it is not the main app read for those screens today.
+
+Exercise source labels have largely moved to the newer model for generated content. Card source labels are still partially legacy and currently remain:
+
+- `builtin`
+- `lesson`
+- `correction`
+- `manual`
+
+Note: there is no standalone "Marco skill" file in the current Codex skill registry for this repo. This document is the maintained source for Marco/app alignment until a dedicated skill is added. Runtime event/job details now live alongside it in `docs/marco-runtime-contract.md`.
+
+## Current Runtime Reference
+
+This section documents the system as it exists today.
+
+### Main User Flows
+
+The current app is organized around four primary learner actions plus one reflective view:
+
+- `Review words`
+- `Practice mistakes`
+- `Build skills`
+- `Continue mission`
+- `Progress`
+
+Current route map:
+
+- Home: `/`
+- Review words: `/practice`
+- Practice mistakes / drills: `/drills`
+- Build skills: `/skills`
+- Current mission: `/missions/current`
+- Progress: `/progress`
+
+### Page Ownership
+
+#### Home
+
+Home is the learner entrypoint.
+
+It should answer:
+
+- what can I do right now?
+- what is due?
+- what mission is active?
+
+Current responsibilities:
+
+- due review count
+- streak
+- launch primary learner actions
+- show active mission summary
+- trigger initial mission inventory generation when empty
+
+#### Review Words
+
+Review is the SRS / flashcard loop.
+
+Current responsibilities:
+
+- card review
+- card mode switching
+- SRS rating
+- filter by level/topic
+- offline snapshot fallback
+
+#### Drills / Practice Mistakes
+
+`/drills` is the generic drill runtime. It currently serves three roles:
+
+- recovery drills
+- mixed drill practice
+- manually selected drill-type practice
+
+This is functional, but it means the recovery path and free-practice path still share one implementation surface.
+
+#### Build Skills
+
+`/skills` is the deliberate-practice selector.
+
+Current responsibilities:
+
+- choose learner level
+- choose skill focus
+- launch a targeted drill batch in `/drills?focus=skill`
+
+#### Current Mission
+
+`/missions/current` is the mission action page.
+
+Current responsibilities:
+
+- show active mission summary
+- show mission progress
+- show blocked state
+- show per-tier runnable actions
+- launch mission sessions
+
+#### Progress
+
+`/progress` is the reflective dashboard.
+
+Current responsibilities:
+
+- snapshot / streak / weekly activity
+- learner-facing skill progression
+- recent mistakes summary
+- recent activity history
+
+## State Ownership Reference
+
+### App / Convex Owns Canonical Learner State
+
+Canonical state currently lives in Convex and app reads:
+
+- mission catalog
+- active mission
+- mission progress
+- checkpoints
+- mission status
+- learner level / unlock state
+- sessions
+- cards
+- inventory status
+
+Relevant modules:
+
+- `convex/missions.ts`
+- `convex/exercises.ts`
+- `convex/sessions.ts`
+- `convex/cards.ts`
+- `convex/schema.ts`
+
+### Marco Owns Generation and Inference
+
+Marco-aligned generation/inference responsibilities currently map to:
+
+- exercise generation:
+  - `convex/exerciseGenerator.ts`
+- recovery drill generation:
+  - app route `src/app/api/generate-practice/route.ts`
+- inferred mistakes / cards from learner results:
+  - `src/hooks/useExerciseSession.ts`
+  - `convex/cards.ts`
+- skill and error trend surfacing:
+  - `src/hooks/useProgressAnalytics.ts`
+
+The core boundary remains:
+
+- app/Convex owns canonical progression truth
+- Marco-like generation logic produces artifacts and signals
+
+## Data Model Reference
+
+### Cards
+
+Cards are stored separately from generated mission exercises.
+
+Current card source values:
+
+- `builtin`
+- `lesson`
+- `correction`
+- `manual`
+
+Current direction support:
+
+- `it_to_en`
+- `en_to_it`
+
+Important note:
+
+- card source names have not yet been fully migrated to the newer exercise-source taxonomy
+
+### Exercises
+
+Exercises support the newer generation metadata model.
+
+Current exercise metadata includes:
+
+- `missionId`
+- `checkpointId`
+- `tier`
+- `generationReason`
+- `variantKey`
+- `staleAfter`
+
+Current exercise source values include:
+
+- `seed`
+- `mission_topup`
+- `recovery`
+- `ad_hoc`
+- `conversation_variant`
+
+### Sessions
+
+Sessions remain the record of completed learner activity.
+
+They are used for:
+
+- learner-facing history
+- mission progress computation
+- analytics
+- recovery/error extraction
+
+## Inventory and Readiness Reference
+
+There are two inventory/readiness query layers:
+
+### General Inventory
+
+- `api.exercises.getInventoryStatus`
+
+Use this for:
+
+- overall readiness checks
+- broader inventory diagnostics
+- future generic dashboards or maintenance jobs
+
+### Mission-Scoped Inventory
+
+- `api.exercises.getMissionInventoryStatus`
+
+Use this for:
+
+- Home
+- mission session launch
+- current mission page
+
+This is the main runtime inventory read today.
+
+### Current Readiness Model
+
+The app currently reasons about readiness through counts and inventory status rather than a single daily lesson batch.
+
+Practical runtime signals include:
+
+- SRS due count
+- standard-ready exercise count
+- deep-ready exercise count
+- empty / generating / available mission inventory
+
+## Generation Pipeline Reference
+
+### Mission Top-Up
+
+Mission content is generated when:
+
+- active mission inventory is empty
+- a mission needs runnable content
+
+Current trigger points include:
+
+- Home
+- Current Mission
+
+The app triggers generation through:
+
+- `api.exerciseGenerator.generateExercises`
+
+### Recovery Practice
+
+Recovery drills are generated on demand from learner state and recent errors.
+
+Current entrypoints:
+
+- Home -> `Practice mistakes`
+- Progress -> recovery CTA
+- mission blocked state
+
+### Card Growth
+
+SRS cards are created or updated from learner behavior in two main ways:
+
+- seeded/builtin content
+- corrections and learner mistakes
+
+Mission SRS activity can also upsert cards for SM-2 tracking.
+
+## Audio and Practice Reference
+
+The flashcard audio contract is currently:
+
+- `classic`
+  - autoplay Italian word on load
+  - flip plays Italian example sentence
+- `reverse`
+  - no autoplay on load
+  - flip plays Italian word
+- `listening`
+  - autoplay Italian word on load
+  - flip plays Italian example sentence
+- `cloze`
+  - autoplay Italian word after 5 seconds
+
+This is implemented in the shared SRS card flow and used for learner-facing review.
+
+## Navigation Reference
+
+Current primary navigation labels are:
+
+- `Home`
+- `Skills`
+- `Missions`
+- `Review`
+- `Progress`
+
+Important product interpretation:
+
+- `Review` is the habit loop
+- `Skills` is deliberate practice
+- `Missions` is gamified progression
+- `Progress` is reflective state
+
+`Practice mistakes` remains a primary Home CTA rather than a bottom-nav destination.
+
+## Known Gaps
+
+These gaps still exist between the desired target architecture and the current code:
+
+1. Card source labels still use legacy values such as `lesson` and `builtin`
+2. `/drills` still hosts multiple learner intents in one implementation surface
+3. Build Skills still launches through the drills runtime rather than a fully distinct skill-runtime surface
+4. Marco/app sync is still documented conceptually here rather than implemented as a formal standalone integration contract
+
+## Recommended Next Technical Steps
+
+1. Finish migrating card source labels to the newer content-ingestion vocabulary
+2. Separate recovery drills from generic drills more cleanly at the route/runtime level if needed
+3. Formalize the app -> Marco and Marco -> app payload contract in code or typed schema
+4. Add a dedicated operational doc for generation jobs if Marco orchestration expands further

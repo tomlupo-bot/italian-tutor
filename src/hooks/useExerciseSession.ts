@@ -49,7 +49,7 @@ interface CorrectionCard {
   en: string;
   example?: string;
   tag?: string;
-  source: "correction";
+  source: "recovery";
   skillId?: string;
   errorCategory?: string;
 }
@@ -160,7 +160,7 @@ function extractCorrectionCards(
           cards.push({
             it: filled,
             en: c.hint || c.options[r.selected] + " → " + c.options[c.correct],
-            source: "correction",
+            source: "recovery",
             skillId: ex.skillId,
             errorCategory: "cloze",
           });
@@ -174,7 +174,7 @@ function extractCorrectionCards(
           cards.push({
             it: c.target_sentence,
             en: c.translation || "Word order practice",
-            source: "correction",
+            source: "recovery",
             skillId: ex.skillId,
             errorCategory: "word_order",
           });
@@ -193,7 +193,7 @@ function extractCorrectionCards(
                 it: filled,
                 en: s.hint || c.pattern_name || "Pattern practice",
                 example: s.template,
-                source: "correction",
+                source: "recovery",
                 skillId: ex.skillId,
                 errorCategory: "grammar_pattern",
               });
@@ -212,7 +212,7 @@ function extractCorrectionCards(
               cards.push({
                 it: s.options[s.correct],
                 en: s.source,
-                source: "correction",
+                source: "recovery",
                 skillId: ex.skillId,
                 errorCategory: "translation",
               });
@@ -232,7 +232,7 @@ function extractCorrectionCards(
                 it: s.corrected!,
                 en: s.explanation || "Error correction",
                 example: s.text,
-                source: "correction",
+                source: "recovery",
                 skillId: ex.skillId,
                 errorCategory: "error_recognition",
               });
@@ -247,7 +247,7 @@ function extractCorrectionCards(
             it: err.corrected,
             en: err.explanation || `${err.original} → ${err.corrected}`,
             example: err.original,
-            source: "correction",
+            source: "recovery",
             skillId: ex.skillId,
             errorCategory: "conversation",
           });
@@ -520,7 +520,7 @@ export function useExerciseSession({
             upsertCard({
               it: content.front,
               en: content.back,
-              source: "lesson" as const,
+              source: "mission_topup" as const,
               tag: currentExercise.missionId ?? undefined,
               level: currentExercise.difficulty ?? "A1",
               direction: resultDirection,

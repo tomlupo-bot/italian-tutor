@@ -3,6 +3,14 @@ import { v } from "convex/values";
 
 const CARD_DIRECTIONS = ["it_to_en", "en_to_it"] as const;
 type CardDirection = (typeof CARD_DIRECTIONS)[number];
+type CardSource =
+  | "seed"
+  | "mission_topup"
+  | "recovery"
+  | "manual"
+  | "builtin"
+  | "lesson"
+  | "correction";
 const DEFAULT_DIRECTION: CardDirection = "it_to_en";
 
 function resolveDirection(value?: string): CardDirection {
@@ -92,7 +100,7 @@ export const review = mutation({
   },
 });
 
-// Add a new card (from corrections or manual)
+// Add a new card (from recovery, generated content, or manual edits)
 export const add = mutation({
   args: {
     it: v.string(),
@@ -101,6 +109,10 @@ export const add = mutation({
     tag: v.optional(v.string()),
     level: v.optional(v.string()),
     source: v.union(
+      v.literal("seed"),
+      v.literal("mission_topup"),
+      v.literal("recovery"),
+      v.literal("manual"),
       v.literal("builtin"),
       v.literal("lesson"),
       v.literal("correction"),
@@ -124,7 +136,7 @@ export const add = mutation({
   },
 });
 
-// Bulk add cards (for seeding or Marco-generated error-derived cards)
+// Bulk add cards (for seeding or recovery-derived cards)
 export const bulkAdd = mutation({
   args: {
     cards: v.array(
@@ -135,6 +147,10 @@ export const bulkAdd = mutation({
         tag: v.optional(v.string()),
         level: v.optional(v.string()),
         source: v.union(
+          v.literal("seed"),
+          v.literal("mission_topup"),
+          v.literal("recovery"),
+          v.literal("manual"),
           v.literal("builtin"),
           v.literal("lesson"),
           v.literal("correction"),
@@ -237,7 +253,7 @@ export const migrateFromLocalStorage = mutation({
         en: card.en,
         example: card.example,
         tag: card.tag,
-        source: "builtin" as const,
+        source: "seed" as const,
         direction: DEFAULT_DIRECTION,
         ease: card.ease ?? 2.5,
         interval: card.interval ?? 0,
@@ -349,12 +365,17 @@ export const getTags = query({
   },
 });
 
-// Upsert a card — find by Italian text, create if missing, review if exists
+// Upsert a card — find by Italian text, create if missing, review if exists.
+// New writes use the newer source labels; legacy values stay valid for compatibility.
 export const upsert = mutation({
   args: {
     it: v.string(),
     en: v.string(),
     source: v.union(
+      v.literal("seed"),
+      v.literal("mission_topup"),
+      v.literal("recovery"),
+      v.literal("manual"),
       v.literal("builtin"),
       v.literal("lesson"),
       v.literal("correction"),
@@ -437,5 +458,30 @@ export const upsert = mutation({
         lastReviewed: today,
       });
     }
+  },
+});
+
+export const migrateLegacySources = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const cards = await ctx.db.query("cards").collect();
+    let updated = 0;
+
+    for (const card of cards) {
+      const nextSource: CardSource | null =
+        card.source === "builtin"
+          ? "seed"
+          : card.source === "lesson"
+            ? "mission_topup"
+            : card.source === "correction"
+              ? "recovery"
+              : null;
+
+      if (!nextSource) continue;
+      await ctx.db.patch(card._id, { source: nextSource });
+      updated += 1;
+    }
+
+    return { updated };
   },
 });

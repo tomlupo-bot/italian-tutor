@@ -107,7 +107,7 @@ export default function DrillsPage() {
   const recentErrors = useMemo(() => {
     if (!allCards) return [];
     return (allCards as AnyCard[])
-      .filter((card) => card.source === "correction")
+      .filter((card) => card.source === "recovery" || card.source === "correction")
       .sort((a, b) => Number(b._creationTime ?? 0) - Number(a._creationTime ?? 0))
       .slice(0, 10);
   }, [allCards]);
@@ -245,7 +245,7 @@ export default function DrillsPage() {
 
     if (current + 1 >= exercises.length) {
       setDone(true);
-      const wrongCards: { it: string; en: string; source: "correction"; errorCategory: string }[] = [];
+      const wrongCards: { it: string; en: string; source: "recovery"; errorCategory: string }[] = [];
       const allResults = new Map(results);
       allResults.set(currentExercise._id, result);
 
@@ -262,7 +262,7 @@ export default function DrillsPage() {
             wrongCards.push({
               it: sentence.split("___").join(options[correctIdx]),
               en: `Practice: ${options[correctIdx]}`,
-              source: "correction",
+              source: "recovery",
               errorCategory: exercise.type,
             });
           }
@@ -280,7 +280,7 @@ export default function DrillsPage() {
               wrongCards.push({
                 it: options[correctIdx],
                 en: (typeof sentence?.source === "string" ? sentence.source : "Practice exercise"),
-                source: "correction",
+                source: "recovery",
                 errorCategory: exercise.type,
               });
             }

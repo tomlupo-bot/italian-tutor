@@ -17,7 +17,15 @@ export default defineSchema({
     missionId: v.optional(v.string()), // active mission context if generated for a mission
     checkpointId: v.optional(v.string()), // active checkpoint/subgoal if applicable
     tier: v.optional(
-      v.union(v.literal("bronze"), v.literal("silver"), v.literal("gold"))
+      v.union(
+        v.literal("bronze"),
+        v.literal("silver"),
+        v.literal("gold"),
+        // Backward-compatible legacy values kept until all stored exercises are migrated.
+        v.literal("quick"),
+        v.literal("standard"),
+        v.literal("deep")
+      )
     ),
     generationReason: v.optional(v.string()), // low_inventory|recovery|session_followup|mission_change
     variantKey: v.optional(v.string()), // dedupe or rotate scenario variants
@@ -116,6 +124,10 @@ export default defineSchema({
     tag: v.optional(v.string()),
     level: v.optional(v.string()),
     source: v.union(
+      v.literal("seed"),
+      v.literal("mission_topup"),
+      v.literal("recovery"),
+      v.literal("manual"),
       v.literal("builtin"),
       v.literal("lesson"),
       v.literal("correction"),
@@ -148,7 +160,14 @@ export default defineSchema({
       v.literal("B2")
     ),
     type: v.string(),
-    tier: v.union(v.literal("bronze"), v.literal("silver"), v.literal("gold")),
+    tier: v.union(
+      v.literal("bronze"),
+      v.literal("silver"),
+      v.literal("gold"),
+      v.literal("quick"),
+      v.literal("standard"),
+      v.literal("deep")
+    ),
     order: v.number(),
     title: v.optional(v.string()),
     checkpointId: v.optional(v.string()),
