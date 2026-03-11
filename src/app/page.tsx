@@ -155,7 +155,7 @@ export default function Home() {
         </p>
         {hasDueCards ? (
           <Link
-            href={`/session/${today}?mode=bronze`}
+            href={withBasePath(`/session/${today}?mode=bronze`)}
             className="px-6 py-3 bg-accent rounded-xl text-sm font-medium"
           >
             Start Bronze session ({dueCards?.length ?? 0} due)
@@ -272,6 +272,20 @@ export default function Home() {
                   className="h-full rounded-full bg-accent transition-all duration-500"
                   style={{ width: `${missionProgress?.percent ?? 0}%` }}
                 />
+              </div>
+            </div>
+          ) : null}
+          {generating ? (
+            <div className="mt-3 rounded-xl border border-accent/20 bg-accent/10 px-3 py-3">
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent-light">
+                  AI
+                </span>
+                <span className="text-xs text-white/35">Preparing mission practice</span>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-white/45">
+                <Loader2 size={14} className="animate-spin text-accent" />
+                <span>Building the first batch for your active mission.</span>
               </div>
             </div>
           ) : null}

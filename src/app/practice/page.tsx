@@ -13,6 +13,7 @@ import { StudyShell } from "../../components/layout/ScreenShell";
 import Badge from "../../components/Badge";
 import StudyProgressHeader from "../../components/StudyProgressHeader";
 import Link from "next/link";
+import { withBasePath } from "@/lib/paths";
 
 const MODES: { key: CardMode; label: string; icon: string }[] = [
   { key: "classic", label: "Classic", icon: "🇮🇹→🇬🇧" },
@@ -326,7 +327,7 @@ export default function PracticePage() {
         )}
         {embeddedMode && sessionDate && (
           <Link
-            href={`/session/${sessionDate}`}
+            href={withBasePath(`/session/${sessionDate}`)}
             className="mt-2 px-4 py-2 rounded-xl border border-white/10 text-sm text-white/70 hover:bg-white/5 transition"
           >
             Back to Session
@@ -354,7 +355,7 @@ export default function PracticePage() {
         </div>
         {embeddedMode && sessionDate && (
           <Link
-            href={`/session/${sessionDate}`}
+            href={withBasePath(`/session/${sessionDate}`)}
             className="px-4 py-2 rounded-xl border border-white/10 text-sm text-white/70 hover:bg-white/5 transition"
           >
             Back to Session
@@ -370,7 +371,7 @@ export default function PracticePage() {
   const header = embeddedMode ? (
     <div className="w-full flex items-center justify-between">
       <Link
-        href={sessionDate ? `/session/${sessionDate}` : "/"}
+        href={sessionDate ? withBasePath(`/session/${sessionDate}`) : withBasePath("/")}
         className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition text-white/50 hover:text-white"
       >
         <ArrowLeft size={18} />

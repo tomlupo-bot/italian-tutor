@@ -7,6 +7,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { DashboardShell } from "@/components/layout/ScreenShell";
 import { cn } from "@/lib/cn";
+import { withBasePath } from "@/lib/paths";
 import type { LearnerLevel } from "@/lib/missionTypes";
 import { SKILL_FOCUS_META, type SkillFocusKey } from "@/lib/skillPracticeCatalog";
 
@@ -109,7 +110,7 @@ export default function SkillsPage() {
           <p className="text-[11px] text-white/35 pt-1">{selectedSkillMeta.coverageNote}</p>
         </div>
         <Link
-          href={`/drills?focus=skill&level=${selectedLevel}&skill=${selectedSkill}`}
+          href={withBasePath(`/drills?focus=skill&level=${selectedLevel}&skill=${selectedSkill}`)}
           className="inline-flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/20 px-4 py-2 text-sm font-medium text-accent-light"
         >
           Start drills

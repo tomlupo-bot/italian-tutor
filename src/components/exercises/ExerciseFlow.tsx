@@ -128,6 +128,8 @@ export default function ExerciseFlow({
         return (r as { scores: boolean[] }).scores.every(Boolean);
       return false;
     }).length;
+    const accuracyPercent =
+      exercises.length > 0 ? Math.round((correctCount / exercises.length) * 100) : 0;
 
     return (
       <div className="max-w-xl mx-auto px-4 py-8 flex flex-col items-center gap-6">
@@ -184,6 +186,7 @@ export default function ExerciseFlow({
               exercisesCompleted={results.size}
               correctCount={correctCount}
               errorsCount={sessionErrors.length}
+              accuracyPercent={accuracyPercent}
               sessionDate={date}
             />
 

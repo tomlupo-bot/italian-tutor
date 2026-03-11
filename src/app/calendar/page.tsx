@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { withBasePath } from "@/lib/paths";
 
 export default function CalendarPage() {
-  redirect("/progress");
+  redirect(withBasePath("/progress"));
 }

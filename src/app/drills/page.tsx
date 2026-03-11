@@ -53,6 +53,36 @@ const DRILL_TYPES: { type: string; label: string; emoji: string; description: st
   { type: "error_hunt", label: "Error hunt", emoji: "🔍", description: "Spot and fix mistakes" },
 ];
 
+function getGenerationCopy(
+  mode: PracticeMode | null,
+  selectedType: string | null,
+  skillFocus: { skill: string; level: string } | null,
+) {
+  if (mode === "skill" && skillFocus) {
+    return {
+      title: "Generating drills",
+      detail: `AI is building a fresh ${SKILL_FOCUS_CONFIG[skillFocus.skill]?.label ?? "skill"} batch for ${skillFocus.level}.`,
+    };
+  }
+  if (mode === "errors") {
+    return {
+      title: "Preparing recovery practice",
+      detail: "AI is turning your recent mistakes into a focused drill set.",
+    };
+  }
+  if (mode === "typed" && selectedType) {
+    const drill = DRILL_TYPES.find((entry) => entry.type === selectedType);
+    return {
+      title: "Generating drills",
+      detail: `AI is preparing a fresh ${drill?.label ?? "drill"} batch.`,
+    };
+  }
+  return {
+    title: "Generating drills",
+    detail: "AI is building a fresh mixed drill set for you.",
+  };
+}
+
 export default function DrillsPage() {
   const today = getTodayWarsaw();
   const [mode, setMode] = useState<PracticeMode | null>(null);
@@ -282,6 +312,11 @@ export default function DrillsPage() {
     }).length;
   }, [results]);
 
+  const generationCopy = useMemo(
+    () => getGenerationCopy(mode, selectedType, skillFocus),
+    [mode, selectedType, skillFocus],
+  );
+
   const sessionSummary = useMemo(() => {
     if (mode === "skill" && skillFocus) {
       return {
@@ -424,7 +459,7 @@ export default function DrillsPage() {
           </h2>
           <div className="grid grid-cols-2 gap-3">
             <Link
-              href={`/session/${today}?mode=bronze`}
+              href={withBasePath(`/session/${today}?mode=bronze`)}
               className="text-left rounded-2xl border border-white/10 bg-card p-4 transition active:scale-[0.98] hover:border-white/20"
             >
               <span className="text-lg">🗂️</span>
@@ -457,9 +492,20 @@ export default function DrillsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-3">
-        <Loader2 size={32} className="text-accent animate-spin" />
-        <p className="text-white/50 text-sm">Generating exercises...</p>
+      <main className="min-h-screen max-w-lg mx-auto px-4 flex items-center justify-center">
+        <div className="w-full rounded-2xl border border-accent/20 bg-card p-6 text-center space-y-3">
+          <div className="flex items-center justify-center gap-2">
+            <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent-light">
+              AI
+            </span>
+            <span className="text-xs text-white/35">Live generation</span>
+          </div>
+          <Loader2 size={32} className="mx-auto text-accent animate-spin" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{generationCopy.title}</p>
+            <p className="text-xs text-white/45">{generationCopy.detail}</p>
+          </div>
+        </div>
       </main>
     );
   }

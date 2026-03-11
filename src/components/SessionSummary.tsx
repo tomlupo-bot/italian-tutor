@@ -17,6 +17,7 @@ import { EXERCISE_TIER_META, normalizeExerciseMode, type ExerciseMode } from "@/
 import Link from "next/link";
 import { prettySkillLabel } from "@/lib/labels";
 import type { SessionSkillImpact } from "@/lib/sessionSkillImpact";
+import { getErrorInsight } from "@/lib/errorInsights";
 import { withBasePath } from "@/lib/paths";
 import {
   computeSkillBandReadiness,
@@ -57,19 +58,6 @@ interface RecentSessionOutcome {
   appliedCredits?: { bronze: number; silver: number; gold: number };
   _creationTime?: number;
 }
-
-const ERROR_CAT_LABELS: Record<string, string> = {
-  cloze: "Fill-in-the-blank",
-  word_order: "Word order",
-  grammar_pattern: "Grammar patterns",
-  translation: "Translation",
-  error_recognition: "Error spotting",
-  grammar: "Grammar",
-  vocab: "Vocabulary",
-  functional: "Functional",
-  unknown: "General",
-  other: "General",
-};
 
 export default function SessionSummary({
   mode,
@@ -116,6 +104,53 @@ export default function SessionSummary({
       .sort(([, a], [, b]) => b - a)
       .slice(0, 3);
   }, [allCards]);
+
+  const sessionFeedback = useMemo(() => {
+    const strongestSkill = missionSkillSummary?.topSkills?.[0] ?? null;
+    const primaryError = recentCorrectionSummary?.[0] ?? null;
+    const primaryErrorInsight = primaryError ? getErrorInsight(primaryError[0]) : null;
+
+    const sessionTone =
+      accuracyPercent >= 85
+        ? "Strong session"
+        : accuracyPercent >= 70
+          ? "Solid session"
+          : "Recovery session";
+
+    const outcome =
+      accuracyPercent >= 85
+        ? "You held accuracy well and moved the session forward cleanly."
+        : accuracyPercent >= 70
+          ? "You moved forward, but one or two areas still need cleanup."
+          : "This session exposed a real weak spot worth practicing again soon.";
+
+    const improved =
+      strongestSkill
+        ? `${strongestSkill.label} moved most this session.`
+        : mode === "bronze"
+          ? "You reinforced word recall in this session."
+          : mode === "gold"
+            ? "You practiced carrying a conversation forward."
+            : "You reinforced a focused drill skill in this session.";
+
+    const nextFocus = primaryErrorInsight?.takeaway ?? "Keep building consistency with another short session.";
+    const nextAction =
+      errorsCount > 0
+        ? "Best next step: Practice mistakes."
+        : mode === "bronze"
+          ? "Best next step: Build skills."
+          : "Best next step: Continue mission.";
+
+    return {
+      sessionTone,
+      outcome,
+      improved,
+      nextFocus,
+      nextAction,
+      strongestSkill,
+      primaryErrorInsight,
+    };
+  }, [accuracyPercent, errorsCount, missionSkillSummary, mode, recentCorrectionSummary]);
 
   // ── Weekly trend ──────────────────────────────────────────────────
   const weekTrend = useMemo(() => {
@@ -235,6 +270,14 @@ export default function SessionSummary({
             <p className="text-[9px] text-white/40">to review</p>
           </div>
         </div>
+
+        <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-3 space-y-1.5">
+          <p className="text-[11px] uppercase tracking-wider text-accent-light">{sessionFeedback.sessionTone}</p>
+          <p className="text-sm text-white">{sessionFeedback.outcome}</p>
+          <p className="text-xs text-white/55">{sessionFeedback.improved}</p>
+          <p className="text-xs text-white/55">{sessionFeedback.nextFocus}</p>
+          <p className="text-xs font-medium text-accent-light">{sessionFeedback.nextAction}</p>
+        </div>
       </div>
 
       {/* Mission Skills */}
@@ -249,13 +292,8 @@ export default function SessionSummary({
           </div>
           <p className="text-[10px] text-white/30">
             {mode === "bronze"
-              ? `${missionSkillSummary.exercisesContributing} reviewed card${missionSkillSummary.exercisesContributing === 1 ? "" : "s"} generated ${missionSkillSummary.totalPoints} vocabulary-weighted skill points.`
-              : `${missionSkillSummary.exercisesContributing} completed exercise${missionSkillSummary.exercisesContributing === 1 ? "" : "s"} generated ${missionSkillSummary.totalPoints} total skill points.`}
-          </p>
-          <p className="text-[10px] text-white/30">
-            {mode === "bronze"
-              ? "Bronze rule: Again = 1 point, Good = 6 points, Easy = 10 points toward the card's mapped skill."
-              : "Session impact rule: each completed exercise adds 1-10 points to its mapped skills based on result quality."}
+              ? `${missionSkillSummary.exercisesContributing} reviewed card${missionSkillSummary.exercisesContributing === 1 ? "" : "s"} reinforced word knowledge in this session.`
+              : `${missionSkillSummary.exercisesContributing} completed exercise${missionSkillSummary.exercisesContributing === 1 ? "" : "s"} fed your strongest skill gains.`}
           </p>
           <div className="space-y-1.5 mt-2 pt-2 border-t border-white/5">
             {missionSkillSummary.topSkills.map((skill) => (
@@ -274,14 +312,6 @@ export default function SessionSummary({
                   <span>{skill.currentBand}</span>
                   <span>{skill.totalPoints} pts total</span>
                 </div>
-                {skill.readiness && (
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-white/30">
-                    <span>P {skill.readiness.gates.points.current}/{skill.readiness.gates.points.target}</span>
-                    <span>Prof {skill.readiness.gates.proficiency.current}/{skill.readiness.gates.proficiency.target}</span>
-                    <span>Conf {skill.readiness.gates.confidence.current}/{skill.readiness.gates.confidence.target}</span>
-                    <span>Ev {skill.readiness.gates.evidence.current}/{skill.readiness.gates.evidence.target}</span>
-                  </div>
-                )}
                 {skill.nextTarget && (
                   <div className="space-y-1">
                     <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -291,7 +321,6 @@ export default function SessionSummary({
                       />
                     </div>
                     <p className="text-[10px] text-white/30">
-                      {skill.readiness ? `${skill.readiness.readinessScore}% readiness · ` : ""}
                       {skill.nextTarget}
                     </p>
                   </div>
@@ -383,7 +412,7 @@ export default function SessionSummary({
             </div>
           )}
           <Link
-            href={`/session/${effectiveDate}/history`}
+            href={withBasePath(`/session/${effectiveDate}/history`)}
             className="inline-block text-[11px] text-accent-light hover:text-accent transition"
           >
             Review this day
@@ -448,7 +477,7 @@ export default function SessionSummary({
           <div className="flex flex-wrap gap-1.5">
             {recentCorrectionSummary.map(([category, count]) => (
               <span key={category} className="rounded-full bg-warn/10 px-2 py-0.5 text-[10px] text-warn/80">
-                {ERROR_CAT_LABELS[category] ?? category} ({count})
+                {getErrorInsight(category).label} ({count})
               </span>
             ))}
           </div>

@@ -14,6 +14,7 @@ import {
 } from "@/lib/exerciseTypes";
 import {
   inventoryToExerciseCounts,
+  modeAvailable,
   type InventoryStatusResult,
 } from "@/lib/inventoryStatus";
 import { withBasePath } from "@/lib/paths";
@@ -182,6 +183,26 @@ export default function CurrentMissionPage() {
             You have {progress.criticalErrorsCount} critical errors to recover before continuing the mission.
           </div>
         ) : null}
+
+        {generating ? (
+          <div className="rounded-xl border border-accent/20 bg-accent/10 px-4 py-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-accent-light">
+                AI
+              </span>
+              <span className="text-xs text-white/35">Live generation</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Loader2 size={18} className="animate-spin text-accent" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Preparing mission practice</p>
+                <p className="text-xs text-white/45">
+                  AI is building the first batch for this mission.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="space-y-3">
@@ -198,9 +219,10 @@ export default function CurrentMissionPage() {
               mode === "bronze"
                 ? exerciseCounts.srs
                 : mode === "silver"
-                  ? exerciseCounts.cloze
-                  : exerciseCounts.conversation;
-            const unavailable = blockedByErrors || readyCount === 0 || generating;
+                  ? inventoryStatus?.counts.standardReady ?? 0
+                  : inventoryStatus?.counts.deepReady ?? 0;
+            const unavailable =
+              blockedByErrors || !modeAvailable(mode, inventoryStatus, dueCardsCount) || generating;
             const stateLabel =
               modeProgress[mode].percent >= 100
                 ? "Complete"
@@ -215,8 +237,8 @@ export default function CurrentMissionPage() {
                 key={mode}
                 href={
                   blockedByErrors
-                    ? "/drills?focus=recovery"
-                    : `/session/${today}?mode=${mode}`
+                    ? withBasePath("/drills?focus=recovery")
+                    : withBasePath(`/session/${today}?mode=${mode}`)
                 }
                 aria-disabled={unavailable}
                 className={`block rounded-2xl border px-4 py-4 transition ${
