@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { VocabCard } from "../../data/vocab";
-import Flashcard, { speakItalian } from "../../components/Flashcard";
+import SrsCard from "../../components/SrsCard";
 import type { CardMode } from "../../components/Flashcard";
 import { cn } from "../../lib/cn";
 import { Loader2, X, ChevronDown, ArrowLeft } from "lucide-react";
@@ -53,7 +53,6 @@ export default function PracticePage() {
   const [sessionDate, setSessionDate] = useState<string | undefined>(undefined);
 
   const [idx, setIdx] = useState(0);
-  const [flipped, setFlipped] = useState(false);
   const [reviewed, setReviewed] = useState(0);
   const [totalQuality, setTotalQuality] = useState(0);
   const [done, setDone] = useState(false);
@@ -128,25 +127,10 @@ export default function PracticePage() {
 
   useEffect(() => {
     setIdx(0);
-    setFlipped(false);
     setReviewed(0);
     setTotalQuality(0);
     setDone(false);
   }, [selectedLevel, selectedTag, studyAll]);
-
-  useEffect(() => {
-    if (!currentCard || done || flipped) return;
-    if (mode === "classic" || mode === "listening" || mode === "cloze") {
-      speakItalian(currentCard.it, 0.85);
-      return;
-    }
-    if (mode === "reverse") {
-      const timer = window.setTimeout(() => {
-        speakItalian(currentCard.it, 0.85);
-      }, 5000);
-      return () => window.clearTimeout(timer);
-    }
-  }, [currentCard, done, flipped, mode]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -171,7 +155,6 @@ export default function PracticePage() {
 
       setTotalQuality((prev) => prev + quality);
       setReviewed((prev) => prev + 1);
-      setFlipped(false);
 
       if (idx < cards.length - 1) {
         setIdx((i) => i + 1);
@@ -410,7 +393,6 @@ export default function PracticePage() {
             key={m.key}
             onClick={() => {
               setMode(m.key);
-              setFlipped(false);
             }}
             className={cn(
               "px-3 py-1.5 rounded-full text-xs font-medium transition",
@@ -443,42 +425,19 @@ export default function PracticePage() {
       </div>
 
       <ExerciseErrorBoundary onSkip={() => handleFeedback(1)}>
-        <Flashcard
+        <SrsCard
           card={vocabCard}
-          flipped={flipped}
-          onFlip={() => setFlipped(!flipped)}
           mode={mode}
+          onRate={handleFeedback}
           speechRate={0.85}
+          showUndoPrompt={false}
+          ratingButtons={[
+            { quality: 1, label: "Again", color: "bg-danger/20 text-danger border-danger/30" },
+            { quality: 3, label: "Good", color: "bg-warn/20 text-warn border-warn/30" },
+            { quality: 5, label: "Easy", color: "bg-success/20 text-success border-success/30" },
+          ]}
         />
       </ExerciseErrorBoundary>
-
-      {flipped ? (
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={() => handleFeedback(1)}
-            className="w-full px-5 py-3 rounded-xl bg-danger/20 border border-danger/30 hover:bg-danger/30 transition text-sm font-medium"
-            aria-label="Again — review soon"
-          >
-            Again
-          </button>
-          <button
-            onClick={() => handleFeedback(3)}
-            className="w-full px-5 py-3 rounded-xl bg-warn/20 border border-warn/30 hover:bg-warn/30 transition text-sm font-medium"
-            aria-label="Good — review later"
-          >
-            Good
-          </button>
-          <button
-            onClick={() => handleFeedback(5)}
-            className="w-full px-5 py-3 rounded-xl bg-success/20 border border-success/30 hover:bg-success/30 transition text-sm font-medium"
-            aria-label="Easy — long interval"
-          >
-            Easy
-          </button>
-        </div>
-      ) : (
-        <p className="text-white/20 text-xs">Tap card to flip</p>
-      )}
     </StudyShell>
   );
 }

@@ -73,6 +73,7 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
         card={card}
         mode={cardMode}
         onRate={handleRate}
+        showUndoPrompt={false}
         ratingButtons={[
           { quality: 0, label: "Again", color: "bg-danger/20 text-danger border-danger/30" },
           { quality: 3, label: "Good", color: "bg-warn/20 text-warn border-warn/30" },

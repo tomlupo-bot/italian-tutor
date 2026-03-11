@@ -34,6 +34,7 @@ interface Props {
   ratingButtons?: RatingButton[];
   revealHint?: string;
   reverseAutoplayDelayMs?: number;
+  showUndoPrompt?: boolean;
 }
 
 export default function SrsCard({
@@ -44,6 +45,7 @@ export default function SrsCard({
   ratingButtons = DEFAULT_BUTTONS,
   revealHint = "Tap card to flip",
   reverseAutoplayDelayMs = 5000,
+  showUndoPrompt = false,
 }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [pendingQuality, setPendingQuality] = useState<number | null>(null);
@@ -60,15 +62,18 @@ export default function SrsCard({
 
   const handleRate = useCallback(
     (quality: number) => {
-      if (pendingQuality !== null) return;
-      setPendingQuality(quality);
+      if (showUndoPrompt) {
+        if (pendingQuality !== null) return;
+        setPendingQuality(quality);
+      }
       onRate(quality);
+      if (!showUndoPrompt) return;
       submitTimerRef.current = window.setTimeout(() => {
         setPendingQuality(null);
         setFlipped(false);
       }, 1200);
     },
-    [onRate, pendingQuality],
+    [onRate, pendingQuality, showUndoPrompt],
   );
 
   const cancelPendingRate = useCallback(() => {
@@ -116,7 +121,8 @@ export default function SrsCard({
         speechRate={speechRate}
       />
 
-      {flipped && (
+      <div className="min-h-[72px] space-y-3">
+      {flipped ? (
         <div className={cn("grid gap-3", ratingButtons.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
           {ratingButtons.map((btn) => (
             <button
@@ -132,9 +138,11 @@ export default function SrsCard({
             </button>
           ))}
         </div>
+      ) : (
+        <p className="pt-6 text-center text-white/20 text-xs">{revealHint}</p>
       )}
 
-      {pendingQuality !== null && (
+      {showUndoPrompt && pendingQuality !== null && (
         <div className="rounded-xl border border-accent/20 bg-accent/10 px-3 py-2 flex items-center justify-between gap-3">
           <p className="text-xs text-accent-light">Rating saved. Undo?</p>
           <button
@@ -145,8 +153,7 @@ export default function SrsCard({
           </button>
         </div>
       )}
-
-      {!flipped && <p className="text-center text-white/20 text-xs">{revealHint}</p>}
+      </div>
     </div>
   );
 }
