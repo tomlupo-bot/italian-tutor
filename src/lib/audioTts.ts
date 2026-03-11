@@ -3,6 +3,7 @@
 import { apiPath } from "./paths";
 
 let currentAudio: HTMLAudioElement | null = null;
+let currentRequestId = 0;
 
 interface PlayOptions {
   rate?: number;
@@ -16,6 +17,7 @@ export async function playItalianTts(
 ): Promise<boolean> {
   const { rate = 0.9, userInitiated = false, onBlocked } = options;
   if (typeof window === "undefined" || !text.trim()) return false;
+  const requestId = ++currentRequestId;
 
   if (currentAudio) {
     currentAudio.pause();
@@ -33,6 +35,7 @@ export async function playItalianTts(
     });
     if (!res.ok) throw new Error("tts_failed");
     const blob = await res.blob();
+    if (requestId !== currentRequestId) return false;
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     currentAudio = audio;
