@@ -64,6 +64,15 @@ export default function SrsCard({
     level: card.level as VocabCard["level"] | undefined,
   };
 
+  useEffect(() => {
+    setFlipped(false);
+    setPendingQuality(null);
+    if (submitTimerRef.current !== null) {
+      window.clearTimeout(submitTimerRef.current);
+      submitTimerRef.current = null;
+    }
+  }, [vocabCard.id]);
+
   const handleRate = useCallback(
     (quality: number) => {
       if (showUndoPrompt) {
