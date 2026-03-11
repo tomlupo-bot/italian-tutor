@@ -7,7 +7,8 @@ import type {
   SrsContent,
   SrsResult,
 } from "@/lib/exerciseTypes";
-import Flashcard, { type CardMode, speakItalian } from "@/components/Flashcard";
+import type { CardMode } from "@/components/Flashcard";
+import SrsCard from "@/components/SrsCard";
 import type { VocabCard } from "@/data/vocab";
 
 const CARD_MODE_KEY = "italian-tutor:flashcard-mode";
@@ -20,7 +21,6 @@ interface Props {
 export default function FlashcardExercise({ content, onComplete }: Props) {
   const c = content as SrsContent;
   const startTime = useRef(Date.now());
-  const [flipped, setFlipped] = useState(false);
   const defaultDirection: FlashcardDirection = c.direction ?? "it_to_en";
   const directionToMode = (direction: FlashcardDirection): CardMode =>
     direction === "en_to_it" ? "reverse" : "classic";
@@ -55,20 +55,8 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
     level: c.level as VocabCard["level"] | undefined,
   };
 
-  useEffect(() => {
-    if (cardMode !== "reverse") {
-      speakItalian(card.it, 0.85);
-    }
-  }, [card.it, cardMode]);
-
-  useEffect(() => {
-    if (!flipped || cardMode !== "reverse") return;
-    speakItalian(card.it, 0.85);
-  }, [flipped, card.it, cardMode]);
-
   const handleRate = useCallback(
     (quality: number) => {
-      setFlipped(false);
       const result: SrsResult = {
         quality,
         time_ms: Date.now() - startTime.current,
@@ -81,16 +69,18 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
 
   return (
     <div className="space-y-4 w-full">
-      <Flashcard
+      <SrsCard
         card={card}
-        flipped={flipped}
-        onFlip={() => setFlipped((value) => !value)}
         mode={cardMode}
+        onRate={handleRate}
+        ratingButtons={[
+          { quality: 0, label: "Again", color: "bg-danger/20 text-danger border-danger/30" },
+          { quality: 3, label: "Good", color: "bg-warn/20 text-warn border-warn/30" },
+          { quality: 5, label: "Easy", color: "bg-success/20 text-success border-success/30" },
+        ]}
       />
       <div className="flex items-center justify-between text-xs text-white/40">
-        <p className="flex-1 text-center text-white/30">
-          {flipped ? "Rate how well you recalled it" : "Tap card to flip"}
-        </p>
+        <div className="flex-1" />
         <button
           type="button"
           onClick={(event) => {
@@ -104,28 +94,6 @@ export default function FlashcardExercise({ content, onComplete }: Props) {
             : "Switch to Italian prompt first"}
         </button>
       </div>
-      {flipped ? (
-        <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={() => handleRate(0)}
-            className="w-full px-5 py-3 rounded-xl bg-danger/20 border border-danger/30 hover:bg-danger/30 transition text-sm font-medium"
-          >
-            Again
-          </button>
-          <button
-            onClick={() => handleRate(3)}
-            className="w-full px-5 py-3 rounded-xl bg-warn/20 border border-warn/30 hover:bg-warn/30 transition text-sm font-medium"
-          >
-            Good
-          </button>
-          <button
-            onClick={() => handleRate(5)}
-            className="w-full px-5 py-3 rounded-xl bg-success/20 border border-success/30 hover:bg-success/30 transition text-sm font-medium"
-          >
-            Easy
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }

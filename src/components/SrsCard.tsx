@@ -6,7 +6,17 @@ import Flashcard, { speakItalian } from "@/components/Flashcard";
 import type { CardMode } from "@/components/Flashcard";
 import { cn } from "@/lib/cn";
 
-export type SrsCardMode = Exclude<CardMode, "cloze">;
+interface RatingButton {
+  quality: number;
+  label: string;
+  color: string;
+}
+
+const DEFAULT_BUTTONS: RatingButton[] = [
+  { quality: 0, label: "Again", color: "bg-danger/20 text-danger border-danger/30" },
+  { quality: 3, label: "Good", color: "bg-warn/20 text-warn border-warn/30" },
+  { quality: 5, label: "Easy", color: "bg-success/20 text-success border-success/30" },
+];
 
 export interface SrsCardData {
   front: string;
@@ -16,18 +26,14 @@ export interface SrsCardData {
   level?: string;
 }
 
-const QUALITY_BUTTONS = [
-  { quality: 0, label: "Again", color: "bg-danger/20 text-danger border-danger/30" },
-  { quality: 2, label: "Hard", color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
-  { quality: 3, label: "Good", color: "bg-accent/20 text-accent-light border-accent/30" },
-  { quality: 5, label: "Easy", color: "bg-success/20 text-success border-success/30" },
-];
-
 interface Props {
   card: SrsCardData;
-  mode?: SrsCardMode;
+  mode?: CardMode;
   onRate: (quality: number) => void;
   speechRate?: number;
+  ratingButtons?: RatingButton[];
+  revealHint?: string;
+  reverseAutoplayDelayMs?: number;
 }
 
 export default function SrsCard({
@@ -35,6 +41,9 @@ export default function SrsCard({
   mode = "classic",
   onRate,
   speechRate = 0.85,
+  ratingButtons = DEFAULT_BUTTONS,
+  revealHint = "Tap card to flip",
+  reverseAutoplayDelayMs = 5000,
 }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [pendingQuality, setPendingQuality] = useState<number | null>(null);
@@ -73,38 +82,49 @@ export default function SrsCard({
   useEffect(() => {
     if (mode !== "reverse") {
       speakItalian(vocabCard.it, speechRate);
+      return () => {
+        if (submitTimerRef.current !== null) {
+          window.clearTimeout(submitTimerRef.current);
+        }
+      };
     }
+    if (flipped) {
+      return () => {
+        if (submitTimerRef.current !== null) {
+          window.clearTimeout(submitTimerRef.current);
+        }
+      };
+    }
+    const timer = window.setTimeout(() => {
+      speakItalian(vocabCard.it, speechRate);
+    }, reverseAutoplayDelayMs);
     return () => {
+      window.clearTimeout(timer);
       if (submitTimerRef.current !== null) {
         window.clearTimeout(submitTimerRef.current);
       }
     };
-  }, [mode, speechRate, vocabCard.it]);
-
-  useEffect(() => {
-    if (!flipped || mode !== "reverse") return;
-    speakItalian(vocabCard.it, speechRate);
-  }, [flipped, mode, speechRate, vocabCard.it]);
+  }, [flipped, mode, reverseAutoplayDelayMs, speechRate, vocabCard.it]);
 
   return (
     <div className="space-y-4 w-full">
       <Flashcard
         card={vocabCard}
         flipped={flipped}
-        onFlip={() => !flipped && setFlipped(true)}
+        onFlip={() => setFlipped((value) => !value)}
         mode={mode}
         speechRate={speechRate}
       />
 
       {flipped && (
-        <div className="grid grid-cols-4 gap-2">
-          {QUALITY_BUTTONS.map((btn) => (
+        <div className={cn("grid gap-3", ratingButtons.length === 4 ? "grid-cols-4" : "grid-cols-3")}>
+          {ratingButtons.map((btn) => (
             <button
               key={btn.quality}
               onClick={() => handleRate(btn.quality)}
               disabled={pendingQuality !== null}
               className={cn(
-                "py-3 rounded-xl text-sm font-medium border transition active:scale-95 disabled:opacity-40",
+                "w-full py-3 rounded-xl text-sm font-medium border transition active:scale-95 disabled:opacity-40",
                 btn.color,
               )}
             >
@@ -126,9 +146,7 @@ export default function SrsCard({
         </div>
       )}
 
-      {!flipped && (
-        <p className="text-center text-white/20 text-xs">Tap card to flip</p>
-      )}
+      {!flipped && <p className="text-center text-white/20 text-xs">{revealHint}</p>}
     </div>
   );
 }

@@ -172,45 +172,6 @@ export default function Home() {
     }, {} as Record<ExerciseMode, { done: number; target: number; percent: number }>);
   }, [activeProgress]);
 
-  const bestNextAction = useMemo(() => {
-    if (!activeProgress?.mission) {
-      return {
-        href: "/missions",
-        label: "Open Mission Hub",
-        note: "Pick a mission to start structured progress.",
-      };
-    }
-
-    if (activeProgress.blocker) {
-      return {
-        href: "/exercises?focus=recovery",
-        label: "Run recovery drills",
-        note: "Clear critical mistakes before pushing the mission forward.",
-      };
-    }
-
-    const mode = runnableRecommendedMode ?? activeProgress.recommendedMode;
-    if (mode === "deep") {
-      return {
-        href: `/session/${today}?mode=deep`,
-        label: "Continue Gold checkpoint",
-        note: "Gold is the current bottleneck for mission completion.",
-      };
-    }
-    if (mode === "standard") {
-      return {
-        href: `/session/${today}?mode=standard`,
-        label: "Do Silver session",
-        note: "Silver is the next best step for this mission.",
-      };
-    }
-    return {
-      href: `/session/${today}?mode=quick`,
-      label: "Do Bronze review",
-      note: "Bronze is the next best step for this mission.",
-    };
-  }, [activeProgress, runnableRecommendedMode, today]);
-
   const handleModeSelect = (mode: ExerciseMode) => {
     router.push(`/session/${today}?mode=${mode}`);
   };
@@ -381,16 +342,6 @@ export default function Home() {
               Choose a session level to move the mission forward. Once a level reaches 100%, you can still replay it for
               practice, but it will not add more mission progress.
             </p>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-              <p className="text-[10px] uppercase tracking-wider text-white/35">Best next action</p>
-              <p className="mt-1 text-sm text-white/70">{bestNextAction.note}</p>
-              <Link
-                href={bestNextAction.href}
-                className="mt-3 inline-block rounded-xl border border-accent/30 bg-accent/20 px-4 py-2 text-sm font-medium text-accent-light"
-              >
-                {bestNextAction.label}
-              </Link>
-            </div>
           </>
         ) : (
           <>
