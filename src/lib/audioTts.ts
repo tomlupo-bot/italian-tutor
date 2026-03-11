@@ -11,6 +11,17 @@ interface PlayOptions {
   onBlocked?: () => void;
 }
 
+export function stopItalianTts(): void {
+  currentRequestId += 1;
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
 export async function playItalianTts(
   text: string,
   options: PlayOptions = {},
@@ -19,13 +30,8 @@ export async function playItalianTts(
   if (typeof window === "undefined" || !text.trim()) return false;
   const requestId = ++currentRequestId;
 
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
+  stopItalianTts();
+  currentRequestId = requestId;
 
   try {
     const res = await fetch(apiPath("/api/tts"), {

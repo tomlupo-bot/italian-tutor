@@ -5,6 +5,7 @@ import type { VocabCard } from "@/data/vocab";
 import Flashcard, { speakItalian } from "@/components/Flashcard";
 import type { CardMode } from "@/components/Flashcard";
 import { cn } from "@/lib/cn";
+import { stopItalianTts } from "@/lib/audioTts";
 
 interface RatingButton {
   quality: number;
@@ -67,6 +68,7 @@ export default function SrsCard({
   useEffect(() => {
     setFlipped(false);
     setPendingQuality(null);
+    stopItalianTts();
     if (submitTimerRef.current !== null) {
       window.clearTimeout(submitTimerRef.current);
       submitTimerRef.current = null;
@@ -98,9 +100,11 @@ export default function SrsCard({
   }, []);
 
   useEffect(() => {
+    stopItalianTts();
     if (mode !== "reverse") {
       speakItalian(vocabCard.it, speechRate);
       return () => {
+        stopItalianTts();
         if (submitTimerRef.current !== null) {
           window.clearTimeout(submitTimerRef.current);
         }
@@ -108,6 +112,7 @@ export default function SrsCard({
     }
     if (flipped) {
       return () => {
+        stopItalianTts();
         if (submitTimerRef.current !== null) {
           window.clearTimeout(submitTimerRef.current);
         }
@@ -117,6 +122,7 @@ export default function SrsCard({
       speakItalian(vocabCard.it, speechRate);
     }, reverseAutoplayDelayMs);
     return () => {
+      stopItalianTts();
       window.clearTimeout(timer);
       if (submitTimerRef.current !== null) {
         window.clearTimeout(submitTimerRef.current);
