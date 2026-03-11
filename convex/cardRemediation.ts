@@ -7,10 +7,15 @@ export type LibraryCard = {
 };
 
 export const MISSION_TOPUP_PATCHES: Record<string, Partial<LibraryCard>> = {
+  "il bagno": { example: "Il bagno e privato oppure condiviso?" },
+  "la cucina": { example: "La cucina e condivisa con un altro inquilino." },
   "la visita": {
     en: "the apartment viewing",
     example: "Possiamo fissare una visita per domani pomeriggio?",
   },
+  "l'appartamento": { example: "L'appartamento e vicino alla metro." },
+  "la stanza": { example: "La stanza e piccola ma luminosa." },
+  "il contratto": { example: "Il contratto inizia a maggio." },
   "le spese": {
     en: "the extra monthly costs",
     example: "Le spese mensili sono incluse nell'affitto?",
@@ -29,10 +34,21 @@ export const MISSION_TOPUP_PATCHES: Record<string, Partial<LibraryCard>> = {
     en: "the detail",
     example: "Mi manda un dettaglio in più sulle spese?",
   },
+  "il proprietario": { example: "Il proprietario vive in citta." },
+  "incluso": { example: "Il wifi e incluso nel prezzo?" },
+  "il trasloco": { example: "Il trasloco e previsto per lunedi." },
+  "l'agenzia": { example: "L'agenzia chiede una commissione." },
+  "l'annuncio": { example: "Ho visto il suo annuncio online." },
+  "il problema": { example: "C'e un problema con il contratto?" },
+  "la soluzione": { example: "Cerchiamo una soluzione semplice." },
+  "l'obiettivo": { example: "Il mio obiettivo e entrare entro fine mese." },
+  "il dettaglio": { example: "Mi manda un dettaglio in piu sulle spese?" },
   "la conferma": {
     en: "the confirmation",
     example: "Aspetto la conferma della visita per email.",
   },
+  "la decisione": { example: "Le faccio sapere la mia decisione domani." },
+  "il soggiorno": { example: "Il soggiorno e gia arredato." },
 };
 
 export const SEED_CARD_PATCHES: Array<{ matchIt: string; changes: Partial<LibraryCard> }> = [

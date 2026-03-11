@@ -413,7 +413,7 @@ const ERROR_HUNTS_BY_FOCUS = {
     ["Le contratto inizia lunedì.", "Il contratto inizia lunedì.", "Contratto is masculine singular."],
   ],
   preposition: [
-    ["Vado in stazione alle sei.", "Vado alla stazione alle sei.", "Direction toward a place needs a + article."],
+    ["Vado a appuntamento alle sei.", "Vado all'appuntamento alle sei.", "Before a vowel, a + l' contracts to all'."],
     ["Abito a Italia da due mesi.", "Abito in Italia da due mesi.", "Countries usually take in."],
   ],
   agreement: [
