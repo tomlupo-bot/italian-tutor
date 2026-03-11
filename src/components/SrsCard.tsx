@@ -111,6 +111,7 @@ export default function SrsCard({
       };
     }
     if (flipped) {
+      speakItalian(vocabCard.it, speechRate);
       return () => {
         stopItalianTts();
         if (submitTimerRef.current !== null) {
@@ -118,17 +119,13 @@ export default function SrsCard({
         }
       };
     }
-    const timer = window.setTimeout(() => {
-      speakItalian(vocabCard.it, speechRate);
-    }, reverseAutoplayDelayMs);
     return () => {
       stopItalianTts();
-      window.clearTimeout(timer);
       if (submitTimerRef.current !== null) {
         window.clearTimeout(submitTimerRef.current);
       }
     };
-  }, [flipped, mode, reverseAutoplayDelayMs, speechRate, vocabCard.it]);
+  }, [flipped, mode, speechRate, vocabCard.it]);
 
   return (
     <div className="space-y-4 w-full">
