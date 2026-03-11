@@ -7,6 +7,11 @@ export const APP_BASE_PATH =
 
 export function withBasePath(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
+  const needsManualPrefix =
+    normalized === "/manifest.json" ||
+    normalized.startsWith("/api/") ||
+    normalized.startsWith("/icons/");
+  if (!needsManualPrefix) return normalized;
   if (!APP_BASE_PATH) return normalized;
   if (normalized === APP_BASE_PATH) return normalized;
   if (normalized.startsWith(`${APP_BASE_PATH}/`)) return normalized;
