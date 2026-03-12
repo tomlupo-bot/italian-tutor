@@ -50,7 +50,12 @@ CONVEX_DEPLOYMENT=dev:<deployment>
 Notes:
 
 - `NEXT_PUBLIC_CONVEX_URL` must be the `.convex.cloud` URL, not `.convex.site`.
-- `NEXT_PUBLIC_BASE_PATH` defaults to `/tutor` in `next.config.js`. For local development, prefer `/`.
+- `NEXT_PUBLIC_BASE_PATH` defaults to `/tutor` in `next.config.js`. For fast local development, `/` is still fine, but production-style routing verification should use `/tutor`.
+- In development, `/tutor` is simulated with rewrites. In production-style runs, `/tutor` uses a real Next `basePath`. If behavior differs, trust the production-style `/tutor` verification path.
+- Production-style deployment contract must be consistent:
+  - If the reverse proxy preserves `/tutor`, build with `NEXT_PUBLIC_BASE_PATH=/tutor`.
+  - If the reverse proxy strips `/tutor`, build with `NEXT_PUBLIC_BASE_PATH=/`.
+  - Do not mix these models.
 
 ## Important Structure
 
@@ -66,6 +71,7 @@ Notes:
 - Production build: `npm run build`
 - Production start: `npm run start`
 - Tests: `npm test`
+- Prefix smoke check: `npm run smoke:prefix`
 
 If Convex types or generated API bindings look stale, run:
 
@@ -78,8 +84,17 @@ npx convex dev
 - Preserve the existing App Router structure.
 - Do not hardcode `.convex.site` into the Convex React client.
 - Be careful with `NEXT_PUBLIC_BASE_PATH`; route and asset behavior depend on it.
+- The app is deployed under `/tutor` in production-style environments. Treat `/tutor` as the authoritative mounted path when verifying routing, manifest, and service worker behavior.
+- Do not hardcode `/tutor`; prefer `withBasePath` and `apiPath`, or derive mounted paths from runtime scope when needed.
 - Prefer small, targeted changes over broad refactors unless requested.
 - Keep API keys and secrets out of committed files.
+
+## Runtime Sources Of Truth
+
+- Use `learnerState.getSnapshot` as the main learner-facing runtime state model.
+- Use mission catalog data for mission behavior and progression context.
+- Use `contentAudit.getCurriculumSummary` for curriculum coverage and metadata audit work.
+- For Marco/app-aware tutoring work, prefer [skills/openclaw/italian-tutor/SKILL.md](/home/twilc/projects/italian-tutor/italian-tutor/skills/openclaw/italian-tutor/SKILL.md).
 
 ## Verification Expectations
 
@@ -89,4 +104,21 @@ For changes that affect runtime behavior, verify at least one of:
 - `npm run build`
 - `npm run dev`
 
+For changes that affect routing, manifests, service workers, or prefixed deployment behavior, also verify:
+
+- `npm run smoke:prefix`
+
 For Convex-related changes, verify that the app still boots with `.env.local` populated and `npx convex dev` running.
+
+## Verification Ladder
+
+- Logic/data-only changes: `npm test`
+- Runtime UI/content changes: `npm test` plus `npm run build`
+- Routing, mounted-path, manifest, or service worker changes: `npm run smoke:prefix`
+- Critical user-flow changes: Chrome MCP sanity pass or `npm run test:e2e`
+
+## Known Pitfalls
+
+- `next dev` does not fully model production `/tutor` behavior.
+- Service worker and manifest issues may only appear under a real mounted prefix.
+- If a route works in local dev but fails under `/tutor`, prefer `npm run smoke:prefix` as the deciding check.
