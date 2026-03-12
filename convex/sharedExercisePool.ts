@@ -31,7 +31,7 @@ type SelectorArgs = {
   seed: string;
 };
 
-const PATTERN_FOCUS_SIGNALS: Record<
+export const PATTERN_FOCUS_SIGNALS: Record<
   string,
   { types?: string[]; tags?: string[]; domains?: string[]; patternIds?: string[]; errorFocus?: string[] }
 > = {
@@ -78,6 +78,40 @@ const PATTERN_FOCUS_SIGNALS: Record<
     errorFocus: ["pragmatic_mismatch", "off_topic", "incomplete_response"],
   },
 };
+
+function hasMetadataSignals(template: {
+  patternId?: string | null;
+  domain?: string | null;
+}) {
+  return Boolean(template.patternId || template.domain);
+}
+
+export function matchesPatternFocusSignals(
+  template: {
+    type: string;
+    tags?: string[];
+    errorFocus?: string[];
+    patternId?: string | null;
+    domain?: string | null;
+  },
+  patternFocus?: string,
+  options?: { skipTypeCheck?: boolean }
+) {
+  const patternSignals = patternFocus ? PATTERN_FOCUS_SIGNALS[patternFocus] : null;
+  if (!patternSignals) return true;
+
+  if (!options?.skipTypeCheck && patternSignals.types?.length && !patternSignals.types.includes(template.type)) return false;
+
+  const metadataMatch =
+    Boolean(template.patternId && patternSignals.patternIds?.includes(template.patternId)) ||
+    Boolean(template.domain && patternSignals.domains?.includes(template.domain));
+
+  if (hasMetadataSignals(template)) return metadataMatch;
+
+  const tagMatch = (template.tags ?? []).some((tag) => patternSignals.tags?.includes(tag));
+  const errorMatch = (template.errorFocus ?? []).some((focus) => patternSignals.errorFocus?.includes(focus));
+  return tagMatch || errorMatch;
+}
 
 function stableHash(str: string): number {
   let h = 0;
@@ -155,6 +189,7 @@ export function selectSharedTemplates(
     if (template.level !== args.level) return false;
     if (args.types && args.types.length > 0 && !args.types.includes(template.type)) return false;
     if (!args.types && patternSignals?.types?.length && !patternSignals.types.includes(template.type)) return false;
+    if (args.patternFocus && !matchesPatternFocusSignals(template, args.patternFocus)) return false;
     return true;
   });
 

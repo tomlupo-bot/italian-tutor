@@ -61,10 +61,10 @@ const executableSharedPoolSource = ts.transpileModule(sharedPoolSource, {
 
 const sharedPoolContext = { result: null, exports: {}, module: { exports: {} } };
 vm.runInNewContext(
-  `${executableSharedPoolSource}\nresult = { scoreTemplate: exports.scoreTemplate, selectSharedTemplates: exports.selectSharedTemplates };`,
+  `${executableSharedPoolSource}\nresult = { scoreTemplate: exports.scoreTemplate, selectSharedTemplates: exports.selectSharedTemplates, matchesPatternFocusSignals: exports.matchesPatternFocusSignals };`,
   sharedPoolContext,
 );
-const { scoreTemplate, selectSharedTemplates } = sharedPoolContext.result;
+const { scoreTemplate, selectSharedTemplates, matchesPatternFocusSignals } = sharedPoolContext.result;
 
 test("shared exercise pool covers A1/A2/B1 across core exercise types", () => {
   const expectedLevels = ["A1", "A2", "B1"];
@@ -141,4 +141,35 @@ test("pattern-focused selection prefers templates matching the requested pattern
   });
 
   assert.equal(selected[0]?.variantKey, "requests-match");
+});
+
+test("pattern-focused matching uses curriculum metadata before legacy tags", () => {
+  const misleadingTemplate = {
+    level: "A2",
+    type: "pattern_drill",
+    tier: "standard",
+    tags: ["food"],
+    errorFocus: ["lexical_gap"],
+    patternId: "movement_vado",
+    domain: "movement",
+    variantKey: "misleading-template",
+    content: {},
+    active: true,
+  };
+
+  const directMatchTemplate = {
+    level: "A2",
+    type: "pattern_drill",
+    tier: "standard",
+    tags: ["travel"],
+    errorFocus: ["preposition"],
+    patternId: "movement_vado",
+    domain: "movement",
+    variantKey: "movement-template",
+    content: {},
+    active: true,
+  };
+
+  assert.equal(matchesPatternFocusSignals(misleadingTemplate, "requests_and_needs"), false);
+  assert.equal(matchesPatternFocusSignals(directMatchTemplate, "movement_and_location"), true);
 });

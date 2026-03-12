@@ -35,6 +35,7 @@ const PATTERN_OPTIONS = [
 
 export default function PatternsPage() {
   const learnerState = useQuery(api.learnerState.getSnapshot, {}) as LearnerStateSnapshot | undefined;
+  const curriculumSummary = useQuery(api.contentAudit.getCurriculumSummary, {});
 
   const currentLevel = learnerState?.level.currentLevel ?? "A1";
   const recommendedPattern = learnerState?.adaptiveFocus.recommendedPatterns?.[0] as PatternFocusKey | undefined;
@@ -52,6 +53,9 @@ export default function PatternsPage() {
   }, [recommendedPattern]);
 
   const selectedPatternMeta = PATTERN_FOCUS_CONFIG[selectedPattern];
+  const coverage = curriculumSummary?.levels
+    ?.find((row) => row.level === selectedLevel)
+    ?.lanes?.find((lane) => lane.patternKey === selectedPattern);
 
   return (
     <DashboardShell contentClassName="gap-6">
@@ -138,6 +142,11 @@ export default function PatternsPage() {
           <p className="text-[11px] text-white/35">
             5 drills • {selectedLevel} • {selectedPatternMeta.preview}
           </p>
+          {coverage && (
+            <p className="text-[11px] text-white/35">
+              Live coverage: {coverage.templates} templates • {coverage.cards} cards
+            </p>
+          )}
           <p className="text-[11px] text-white/35">
             Examples: {selectedPatternMeta.examples.slice(0, 2).join(" • ")}
           </p>

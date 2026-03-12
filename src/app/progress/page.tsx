@@ -196,6 +196,23 @@ export default function ProgressPage() {
         </div>
       </section>
 
+      <section className="rounded-2xl border border-white/10 bg-card p-4 space-y-3">
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-wider text-accent-light">Curriculum audit</p>
+          <p className="text-sm text-white/45">Inspect live coverage by level, lane, pattern, and domain.</p>
+        </div>
+        <Link
+          href={withBasePath("/progress/curriculum")}
+          className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm transition hover:bg-white/[0.05]"
+        >
+          <div className="space-y-0.5">
+            <p className="font-medium text-white">Open curriculum audit</p>
+            <p className="text-xs text-white/40">Cards, templates, lane coverage, and metadata distribution</p>
+          </div>
+          <span className="text-white/40">Open</span>
+        </Link>
+      </section>
+
       <section className="rounded-2xl border border-white/10 bg-card p-4 space-y-4">
         <div className="space-y-1">
           <p className="text-[11px] uppercase tracking-wider text-accent-light">Skills now</p>
