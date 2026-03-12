@@ -12,6 +12,7 @@ import { withBasePath } from "@/lib/paths";
 import { prettySkillLabel } from "@/lib/labels";
 import { PATTERN_FOCUS_CONFIG, type PatternFocusKey } from "@/lib/patternFocus";
 import { getTodayWarsaw } from "@/lib/date";
+import { buildRecoveryCard, recoveryLevelForExercise, recoveryTagForExercise } from "@/lib/recoveryCards";
 import Link from "next/link";
 
 type PracticeMode = "errors" | "random" | "typed" | "pattern";
@@ -202,7 +203,7 @@ export default function DrillsPage() {
 
     if (current + 1 >= exercises.length) {
       setDone(true);
-      const wrongCards: { it: string; en: string; source: "recovery"; errorCategory: string }[] = [];
+      const wrongCards: Array<ReturnType<typeof buildRecoveryCard>> = [];
       const allResults = new Map(results);
       allResults.set(currentExercise._id, result);
 
@@ -215,13 +216,19 @@ export default function DrillsPage() {
           const sentence = typeof content.sentence === "string" ? content.sentence : null;
           const options = Array.isArray(content.options) ? (content.options as string[]) : null;
           const correctIdx = typeof content.correct === "number" ? content.correct : null;
-          if (sentence && options && correctIdx !== null && options[correctIdx]) {
-            wrongCards.push({
-              it: sentence.split("___").join(options[correctIdx]),
-              en: `Practice: ${options[correctIdx]}`,
-              source: "recovery",
-              errorCategory: exercise.type,
-            });
+            if (sentence && options && correctIdx !== null && options[correctIdx]) {
+            wrongCards.push(
+              buildRecoveryCard({
+                it: sentence.split("___").join(options[correctIdx]),
+                prompt: sentence,
+                example: sentence,
+                explanation: `Use ${options[correctIdx]} to complete the sentence correctly.`,
+                tag: recoveryTagForExercise(exercise),
+                level: recoveryLevelForExercise(exercise),
+                skillId: exercise.skillId,
+                errorCategory: exercise.type,
+              }),
+            );
           }
         }
 
@@ -234,12 +241,18 @@ export default function DrillsPage() {
             const options = sentence && Array.isArray(sentence.options) ? (sentence.options as string[]) : null;
             const correctIdx = sentence && typeof sentence.correct === "number" ? sentence.correct : null;
             if (options && correctIdx !== null && options[correctIdx]) {
-              wrongCards.push({
-                it: options[correctIdx],
-                en: (typeof sentence?.source === "string" ? sentence.source : "Practice exercise"),
-                source: "recovery",
-                errorCategory: exercise.type,
-              });
+              wrongCards.push(
+                buildRecoveryCard({
+                  it: options[correctIdx],
+                  en: typeof sentence?.source === "string" ? sentence.source : "Practice exercise",
+                  prompt: typeof sentence?.source === "string" ? sentence.source : undefined,
+                  example: options[correctIdx],
+                  tag: recoveryTagForExercise(exercise),
+                  level: recoveryLevelForExercise(exercise),
+                  skillId: exercise.skillId,
+                  errorCategory: exercise.type,
+                }),
+              );
             }
           });
         }

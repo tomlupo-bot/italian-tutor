@@ -335,20 +335,53 @@ export const repairSeedCards = mutation({
 
 function inferRecoveryTag(it: string, example?: string) {
   const sample = `${it} ${example ?? ""}`.toLowerCase();
-  if (sample.includes("stazione") || sample.includes("binario") || sample.includes("treno")) {
+  if (sample.includes("stazione") || sample.includes("binario") || sample.includes("treno") || sample.includes("aeroporto")) {
     return "travel";
   }
-  if (sample.includes("stanza") || sample.includes("appartamento") || sample.includes("affitto")) {
+  if (sample.includes("stanza") || sample.includes("appartamento") || sample.includes("affitto") || sample.includes("cucina") || sample.includes("bagno")) {
     return "home";
   }
-  if (sample.includes("riunione") || sample.includes("documento") || sample.includes("pratica")) {
+  if (sample.includes("farmacia") || sample.includes("febbre") || sample.includes("ricetta") || sample.includes("dolore")) {
+    return "health";
+  }
+  if (sample.includes("ristorante") || sample.includes("caffe") || sample.includes("pizza") || sample.includes("conto")) {
+    return "food";
+  }
+  if (sample.includes("taglia") || sample.includes("cassa") || sample.includes("sconto") || sample.includes("prezzo")) {
+    return "shopping";
+  }
+  if (sample.includes("riunione") || sample.includes("ufficio") || sample.includes("documento") || sample.includes("pratica")) {
     return "work";
   }
-  return "recovery";
+  if (sample.includes("domani") || sample.includes("ieri") || sample.includes("settimana") || sample.includes("mese")) {
+    return "time";
+  }
+  return "basics";
 }
 
 function inferRecoveryLevel(text: string) {
   return text.length > 55 ? "A2" : "A1";
+}
+
+function normalizeRecoveryErrorCategory(category?: string) {
+  switch (category) {
+    case "cloze":
+      return "verb_conjugation";
+    case "word_order":
+      return "word_order";
+    case "grammar_pattern":
+      return "verb_tense";
+    case "translation":
+      return "lexical_choice";
+    case "error_recognition":
+      return "agreement";
+    case "conversation":
+      return "incomplete_response";
+    case "srs_review":
+      return undefined;
+    default:
+      return category;
+  }
 }
 
 export const repairRecoveryCards = mutation({
@@ -366,6 +399,7 @@ export const repairRecoveryCards = mutation({
         explanation,
         tag: card.tag ?? inferRecoveryTag(card.it, card.example),
         level: card.level ?? inferRecoveryLevel(card.it),
+        errorCategory: normalizeRecoveryErrorCategory(card.errorCategory),
         en:
           card.errorCategory === "translation"
             ? card.en

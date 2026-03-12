@@ -7,6 +7,11 @@ import { getTodayWarsaw } from "@/lib/date";
 import { triggerAnswerFeedback } from "@/lib/feedback";
 import { normalizeContent } from "@/lib/normalizeContent";
 import { apiPath } from "@/lib/paths";
+import {
+  buildRecoveryCard,
+  recoveryLevelForExercise,
+  recoveryTagForExercise,
+} from "@/lib/recoveryCards";
 import { resultScore, summarizeResults } from "@/lib/exerciseResults";
 import { computeExerciseEvidenceEntries, computeSessionSkillImpact } from "@/lib/sessionSkillImpact";
 import sessionContracts from "@/lib/sessionContracts";
@@ -117,14 +122,6 @@ function getSrsText(content: Exercise["content"]): SrsContent | null {
     : null;
 }
 
-function recoveryTagForExercise(exercise: Exercise): string | undefined {
-  return exercise.missionId ?? exercise.skillId ?? undefined;
-}
-
-function recoveryLevelForExercise(exercise: Exercise): string | undefined {
-  return exercise.difficulty ?? undefined;
-}
-
 function persistTierScore(date: string, mode: ExerciseMode, scorePercent: number) {
   if (typeof window === "undefined") return;
   try {
@@ -168,18 +165,16 @@ function extractCorrectionCards(
           // Replace the blank with the correct answer
           const parts = c.sentence.split("___");
           const filled = parts.join(c.options[c.correct]);
-          cards.push({
+          cards.push(buildRecoveryCard({
             it: filled,
-            en: "Complete the sentence correctly in Italian.",
             prompt: c.sentence,
             example: c.sentence,
             explanation: c.hint || `${c.options[c.correct]} completes the sentence correctly.`,
             tag: recoveryTagForExercise(ex),
             level: recoveryLevelForExercise(ex),
-            source: "recovery",
             skillId: ex.skillId,
             errorCategory: "cloze",
-          });
+          }));
         }
         break;
       }
@@ -187,7 +182,7 @@ function extractCorrectionCards(
         const c = content as WordBuilderContent;
         const r = result as WordBuilderResult;
         if (!r.correct && c.target_sentence) {
-          cards.push({
+          cards.push(buildRecoveryCard({
             it: c.target_sentence,
             en: c.translation || "Rebuild the sentence in Italian.",
             prompt: c.translation || "Put the words in the right order.",
@@ -195,10 +190,9 @@ function extractCorrectionCards(
             explanation: "Rebuild the full sentence in the correct word order.",
             tag: recoveryTagForExercise(ex),
             level: recoveryLevelForExercise(ex),
-            source: "recovery",
             skillId: ex.skillId,
             errorCategory: "word_order",
-          });
+          }));
         }
         break;
       }
@@ -210,18 +204,16 @@ function extractCorrectionCards(
             if (!correct && c.sentences[i]) {
               const s = c.sentences[i];
               const filled = s.template ? s.template.replace("___", s.correct) : s.correct;
-              cards.push({
+              cards.push(buildRecoveryCard({
                 it: filled,
-                en: "Say the correct Italian sentence.",
                 example: s.template,
                 prompt: s.template,
                 explanation: s.hint || c.pattern_name || "Use the target pattern.",
                 tag: recoveryTagForExercise(ex),
                 level: recoveryLevelForExercise(ex),
-                source: "recovery",
                 skillId: ex.skillId,
                 errorCategory: "grammar_pattern",
-              });
+              }));
             }
           });
         }
@@ -234,7 +226,7 @@ function extractCorrectionCards(
           r.scores.forEach((correct, i) => {
             if (!correct && c.sentences[i]) {
               const s = c.sentences[i];
-              cards.push({
+              cards.push(buildRecoveryCard({
                 it: s.options[s.correct],
                 en: s.source,
                 prompt: s.source,
@@ -242,10 +234,9 @@ function extractCorrectionCards(
                 explanation: "Recall the Italian version of this prompt.",
                 tag: recoveryTagForExercise(ex),
                 level: recoveryLevelForExercise(ex),
-                source: "recovery",
                 skillId: ex.skillId,
                 errorCategory: "translation",
-              });
+              }));
             }
           });
         }
@@ -258,18 +249,16 @@ function extractCorrectionCards(
           r.scores.forEach((correct, i) => {
             if (!correct && c.sentences[i]?.has_error && c.sentences[i].corrected) {
               const s = c.sentences[i];
-              cards.push({
+              cards.push(buildRecoveryCard({
                 it: s.corrected!,
-                en: "Say the corrected sentence in Italian.",
                 example: s.text,
                 prompt: s.text,
                 explanation: s.explanation || "Correct the sentence and keep the intended meaning.",
                 tag: recoveryTagForExercise(ex),
                 level: recoveryLevelForExercise(ex),
-                source: "recovery",
                 skillId: ex.skillId,
                 errorCategory: "error_recognition",
-              });
+              }));
             }
           });
         }
@@ -277,18 +266,16 @@ function extractCorrectionCards(
       }
       case "conversation": {
         for (const err of getConversationErrors(result)) {
-          cards.push({
+          cards.push(buildRecoveryCard({
             it: err.corrected,
-            en: "Say the corrected sentence in Italian.",
             example: err.original,
             prompt: err.original,
             explanation: err.explanation || "Use the corrected Italian version.",
             tag: recoveryTagForExercise(ex),
             level: recoveryLevelForExercise(ex),
-            source: "recovery",
             skillId: ex.skillId,
             errorCategory: "conversation",
-          });
+          }));
         }
         break;
       }
