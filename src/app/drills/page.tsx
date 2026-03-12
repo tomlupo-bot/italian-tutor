@@ -10,7 +10,11 @@ import { Loader2, RefreshCw, Target, Shuffle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { withBasePath } from "@/lib/paths";
 import { prettySkillLabel } from "@/lib/labels";
-import { PATTERN_FOCUS_CONFIG, type PatternFocusKey } from "@/lib/patternFocus";
+import {
+  normalizePatternPracticeLevel,
+  PATTERN_FOCUS_CONFIG,
+  type PatternFocusKey,
+} from "@/lib/patternFocus";
 import { getTodayWarsaw } from "@/lib/date";
 import { buildRecoveryCard, recoveryLevelForExercise, recoveryTagForExercise } from "@/lib/recoveryCards";
 import Link from "next/link";
@@ -330,7 +334,7 @@ export default function DrillsPage() {
     const focus = params.get("focus");
     if (focus === "pattern" || focus === "skill") {
       const pattern = (params.get("pattern") ?? params.get("skill")) as PatternFocusKey | null;
-      const level = params.get("level") ?? "A1";
+      const level = normalizePatternPracticeLevel(params.get("level") ?? undefined);
       if (pattern && PATTERN_FOCUS_CONFIG[pattern]) {
         startPatternPractice(pattern, level);
       }

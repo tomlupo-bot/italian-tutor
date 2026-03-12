@@ -12,6 +12,7 @@ import type * as backfillMissingDirections from "../backfillMissingDirections.js
 import type * as cardRemediation from "../cardRemediation.js";
 import type * as cards from "../cards.js";
 import type * as contentAudit from "../contentAudit.js";
+import type * as curriculumMetadata from "../curriculumMetadata.js";
 import type * as exerciseGenerator from "../exerciseGenerator.js";
 import type * as exerciseTemplatesData from "../exerciseTemplatesData.js";
 import type * as exercises from "../exercises.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   cardRemediation: typeof cardRemediation;
   cards: typeof cards;
   contentAudit: typeof contentAudit;
+  curriculumMetadata: typeof curriculumMetadata;
   exerciseGenerator: typeof exerciseGenerator;
   exerciseTemplatesData: typeof exerciseTemplatesData;
   exercises: typeof exercises;

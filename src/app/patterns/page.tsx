@@ -17,9 +17,12 @@ import { DashboardShell } from "@/components/layout/ScreenShell";
 import { cn } from "@/lib/cn";
 import { withBasePath } from "@/lib/paths";
 import type { LearnerStateSnapshot, Level } from "@/lib/missionTypes";
-import { PATTERN_FOCUS_CONFIG, type PatternFocusKey } from "@/lib/patternFocus";
-
-const LEVELS = ["A1", "A2", "B1", "B2"] as const;
+import {
+  normalizePatternPracticeLevel,
+  PATTERN_FOCUS_CONFIG,
+  PATTERN_PRACTICE_LEVELS,
+  type PatternFocusKey,
+} from "@/lib/patternFocus";
 
 const PATTERN_OPTIONS = [
   { key: "requests_and_needs", icon: Type },
@@ -35,11 +38,11 @@ export default function PatternsPage() {
 
   const currentLevel = learnerState?.level.currentLevel ?? "A1";
   const recommendedPattern = learnerState?.adaptiveFocus.recommendedPatterns?.[0] as PatternFocusKey | undefined;
-  const [selectedLevel, setSelectedLevel] = useState<Level>(currentLevel);
+  const [selectedLevel, setSelectedLevel] = useState<Level>(normalizePatternPracticeLevel(currentLevel));
   const [selectedPattern, setSelectedPattern] = useState<PatternFocusKey>(recommendedPattern ?? "requests_and_needs");
 
   useEffect(() => {
-    setSelectedLevel(currentLevel);
+    setSelectedLevel(normalizePatternPracticeLevel(currentLevel));
   }, [currentLevel]);
 
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function PatternsPage() {
           </p>
         </div>
         <div className="grid grid-cols-4 gap-2">
-          {LEVELS.map((level) => (
+          {PATTERN_PRACTICE_LEVELS.map((level) => (
             <button
               key={level}
               type="button"

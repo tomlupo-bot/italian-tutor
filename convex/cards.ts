@@ -107,6 +107,9 @@ export const add = mutation({
     explanation: v.optional(v.string()),
     tag: v.optional(v.string()),
     level: v.optional(v.string()),
+    phase: v.optional(v.string()),
+    patternId: v.optional(v.string()),
+    domain: v.optional(v.string()),
     source: v.union(
       v.literal("seed"),
       v.literal("mission_topup"),
@@ -143,6 +146,9 @@ export const bulkAdd = mutation({
         explanation: v.optional(v.string()),
         tag: v.optional(v.string()),
         level: v.optional(v.string()),
+        phase: v.optional(v.string()),
+        patternId: v.optional(v.string()),
+        domain: v.optional(v.string()),
         source: v.union(
           v.literal("seed"),
           v.literal("mission_topup"),
@@ -177,6 +183,9 @@ export const bulkAdd = mutation({
           ...(card.explanation && !existing.explanation ? { explanation: card.explanation } : {}),
           ...(card.tag && !existing.tag ? { tag: card.tag } : {}),
           ...(card.level && !existing.level ? { level: card.level } : {}),
+          ...(card.phase && !existing.phase ? { phase: card.phase } : {}),
+          ...(card.patternId && !existing.patternId ? { patternId: card.patternId } : {}),
+          ...(card.domain && !existing.domain ? { domain: card.domain } : {}),
           ...(card.errorCategory && !existing.errorCategory ? { errorCategory: card.errorCategory } : {}),
           ...(card.skillId && !existing.skillId ? { skillId: card.skillId } : {}),
         });

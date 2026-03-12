@@ -597,6 +597,9 @@ export const generateExercises = mutation({
           completed: false,
           checkpointId: template.checkpointId ?? undefined,
           variantKey: template.variantKey,
+          phase: template.phase ?? undefined,
+          patternId: template.patternId ?? undefined,
+          domain: template.domain ?? undefined,
         });
       }
     }
@@ -626,6 +629,9 @@ export const generateExercises = mutation({
           tier: row.tier as "bronze" | "silver" | "gold",
           variantKey: row.variantKey,
           difficulty: row.difficulty,
+          phase: row.phase,
+          patternId: row.patternId,
+          domain: row.domain,
           source: row.source,
         });
       }

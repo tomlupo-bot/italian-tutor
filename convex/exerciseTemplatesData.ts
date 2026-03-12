@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { MISSIONS } from "./progressionCatalog";
+import { deriveTemplateCurriculum } from "./curriculumMetadata";
 
 const TAG_VOCAB = {
   home: [
@@ -2001,7 +2002,17 @@ function buildMissionLibrary(mission) {
     });
   }
 
-  return entries;
+  return entries.map((entry) => ({
+    ...entry,
+    ...deriveTemplateCurriculum({
+      title: entry.title,
+      level: entry.level,
+      type: entry.type,
+      tags: entry.tags,
+      errorFocus: entry.errorFocus,
+      content: entry.content,
+    }),
+  }));
 }
 
 export const EXERCISE_TEMPLATES = MISSIONS

@@ -80,6 +80,9 @@ function srsFromCard(card: {
   example?: string;
   tag?: string;
   level?: string;
+  phase?: string;
+  patternId?: string;
+  domain?: string;
   direction: "it_to_en" | "en_to_it";
 }) {
   return {
@@ -97,6 +100,9 @@ function srsFromCard(card: {
     },
     skillId: "vocab_core",
     difficulty: card.level ?? "A1",
+    phase: card.phase,
+    patternId: card.patternId,
+    domain: card.domain,
     completed: false,
     source: "seed" as const,
   };
@@ -148,6 +154,9 @@ async function buildSharedPracticeSet(
       template.tier === "quick" ? "bronze" : template.tier === "standard" ? "silver" : template.tier === "deep" ? "gold" : template.tier,
     variantKey: template.variantKey,
     difficulty: template.level,
+    phase: template.phase ?? undefined,
+    patternId: template.patternId ?? undefined,
+    domain: template.domain ?? undefined,
     completed: false,
     source: "seed" as const,
   }));
@@ -420,6 +429,9 @@ export const bulkCreate = mutation({
         variantKey: v.optional(v.string()),
         staleAfter: v.optional(v.string()),
         difficulty: v.optional(v.string()),
+        phase: v.optional(v.string()),
+        patternId: v.optional(v.string()),
+        domain: v.optional(v.string()),
         source: v.optional(
           v.union(
             v.literal("seed"),

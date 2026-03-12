@@ -6,6 +6,15 @@ export type PatternFocusKey =
   | "plans_and_reasons"
   | "conversation_repair";
 
+export const PATTERN_PRACTICE_LEVELS = ["A1", "A2", "B1"] as const;
+
+export function normalizePatternPracticeLevel(level?: string) {
+  if (level && PATTERN_PRACTICE_LEVELS.includes(level as (typeof PATTERN_PRACTICE_LEVELS)[number])) {
+    return level as (typeof PATTERN_PRACTICE_LEVELS)[number];
+  }
+  return "A1";
+}
+
 export interface PatternFocusMeta {
   label: string;
   description: string;
@@ -14,6 +23,8 @@ export interface PatternFocusMeta {
   examples: string[];
   types: string[];
   tags?: string[];
+  domains?: string[];
+  patternIds?: string[];
   errorFocus?: string[];
   includeSrs?: boolean;
 }
@@ -27,6 +38,8 @@ export const PATTERN_FOCUS_CONFIG: Record<PatternFocusKey, PatternFocusMeta> = {
     examples: ["Vorrei un cappuccino.", "Ho bisogno di aiuto.", "Posso pagare con carta?"],
     types: ["word_builder", "pattern_drill", "speed_translation", "cloze"],
     tags: ["food", "travel", "shopping", "health", "home", "bureaucracy"],
+    domains: ["food", "shopping", "health", "bureaucracy", "requests"],
+    patternIds: ["polite_request_vorrei", "need_ho_bisogno_di", "ability_posso", "want_voglio"],
     errorFocus: ["lexical_gap", "pragmatic_mismatch", "incomplete_response"],
     includeSrs: true,
   },
@@ -38,6 +51,8 @@ export const PATTERN_FOCUS_CONFIG: Record<PatternFocusKey, PatternFocusMeta> = {
     examples: ["Sono a casa.", "Vado in Italia.", "Dov'è la stazione?"],
     types: ["cloze", "pattern_drill", "speed_translation", "word_builder"],
     tags: ["travel", "transport", "home", "housing"],
+    domains: ["travel", "housing", "movement", "location"],
+    patternIds: ["movement_vado", "location_essere"],
     errorFocus: ["preposition", "instruction_misread"],
     includeSrs: true,
   },
@@ -49,6 +64,8 @@ export const PATTERN_FOCUS_CONFIG: Record<PatternFocusKey, PatternFocusMeta> = {
     examples: ["Ho lavorato molto.", "Ho visto un film.", "Ieri ho preso il treno."],
     types: ["cloze", "pattern_drill", "speed_translation"],
     tags: ["travel", "routine", "work", "social"],
+    domains: ["past_events", "routine", "travel", "work", "social"],
+    patternIds: ["past_ho_participio", "duration_da"],
     errorFocus: ["verb_tense", "verb_conjugation"],
     includeSrs: false,
   },
@@ -60,6 +77,8 @@ export const PATTERN_FOCUS_CONFIG: Record<PatternFocusKey, PatternFocusMeta> = {
     examples: ["Mi piace questa città.", "Preferisco il treno.", "Secondo me è troppo caro."],
     types: ["word_builder", "cloze", "speed_translation", "pattern_drill"],
     tags: ["food", "shopping", "social", "media"],
+    domains: ["preferences", "opinions", "food", "shopping", "social", "media"],
+    patternIds: ["like_mi_piace", "preference_preferisco", "opinion_secondo_me"],
     errorFocus: ["lexical_choice", "agreement", "off_topic"],
     includeSrs: true,
   },
@@ -71,6 +90,8 @@ export const PATTERN_FOCUS_CONFIG: Record<PatternFocusKey, PatternFocusMeta> = {
     examples: ["Domani vado a Roma.", "Penso di studiare di più.", "Studio italiano perché mi piace."],
     types: ["pattern_drill", "word_builder", "cloze", "speed_translation"],
     tags: ["planning", "routine", "work", "travel", "social"],
+    domains: ["plans", "reasons", "routine", "work", "travel", "social"],
+    patternIds: ["plan_penso_di", "future_simple", "explanation_perche", "obligation_devo"],
     errorFocus: ["word_order", "verb_tense", "incomplete_response"],
     includeSrs: false,
   },
@@ -82,6 +103,8 @@ export const PATTERN_FOCUS_CONFIG: Record<PatternFocusKey, PatternFocusMeta> = {
     examples: ["Può ripetere?", "Non ho capito bene.", "Secondo me possiamo fare così."],
     types: ["pattern_drill", "error_hunt", "conversation", "reflection"],
     tags: ["social", "work", "travel", "bureaucracy"],
+    domains: ["conversation", "social", "work", "travel", "bureaucracy"],
+    patternIds: ["conversation_repair", "ability_posso"],
     errorFocus: ["pragmatic_mismatch", "off_topic", "incomplete_response"],
     includeSrs: false,
   },

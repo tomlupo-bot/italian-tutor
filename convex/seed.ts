@@ -1,6 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { EXERCISE_TEMPLATES } from "./exerciseTemplatesData";
+import { deriveCardCurriculum, deriveTemplateCurriculum } from "./curriculumMetadata";
 import {
   A1_AUDIT_EXPANSION,
   A2_AUDIT_EXPANSION,
@@ -196,6 +197,7 @@ async function upsertSeedCards(
   let skipped = 0;
 
   for (const card of cards) {
+    const curriculum = deriveCardCurriculum(card);
     const existing = await ctx.db
       .query("cards")
       .withIndex("by_it_direction", (q) => q.eq("it", card.it).eq("direction", "it_to_en"))
@@ -207,6 +209,9 @@ async function upsertSeedCards(
       if (card.example !== existing.example) patch.example = card.example;
       if (card.tag !== existing.tag) patch.tag = card.tag;
       if (card.level !== existing.level) patch.level = card.level;
+      if (curriculum.phase && curriculum.phase !== existing.phase) patch.phase = curriculum.phase;
+      if (curriculum.patternId && curriculum.patternId !== existing.patternId) patch.patternId = curriculum.patternId;
+      if (curriculum.domain && curriculum.domain !== existing.domain) patch.domain = curriculum.domain;
 
       if (Object.keys(patch).length > 0) {
         await ctx.db.patch(existing._id, patch);
@@ -223,6 +228,9 @@ async function upsertSeedCards(
       example: card.example,
       tag: card.tag,
       level: card.level,
+      phase: curriculum.phase,
+      patternId: curriculum.patternId,
+      domain: curriculum.domain,
       source: "seed" as const,
       ease: 2.5,
       interval: 0,
@@ -290,6 +298,7 @@ export const repairSeedCards = mutation({
     }
 
     for (const card of [...SEED_CARD_INSERTS, ...A1_AUDIT_EXPANSION, ...A2_AUDIT_EXPANSION, ...B1_AUDIT_EXPANSION]) {
+      const curriculum = deriveCardCurriculum(card);
       const existing = await ctx.db
         .query("cards")
         .withIndex("by_it_direction", (q) =>
@@ -300,6 +309,7 @@ export const repairSeedCards = mutation({
 
       await ctx.db.insert("cards", {
         ...card,
+        ...curriculum,
         source: "seed" as const,
         ease: 2.5,
         interval: 0,
@@ -319,6 +329,7 @@ export const repairSeedCards = mutation({
 
       await ctx.db.insert("cards", {
         ...card,
+        ...curriculum,
         source: "seed" as const,
         ease: 2.5,
         interval: 0,
@@ -409,6 +420,101 @@ export const repairRecoveryCards = mutation({
     }
 
     return { updated };
+  },
+});
+
+export const backfillCurriculumMetadata = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const templateMetadataByVariant = new Map(
+      EXERCISE_TEMPLATES.map((entry: any) => [
+        entry.variantKey,
+        deriveTemplateCurriculum({
+          title: entry.title,
+          level: entry.level,
+          type: entry.type,
+          tags: entry.tags,
+          errorFocus: entry.errorFocus,
+          content: entry.content,
+          phase: entry.phase,
+          patternId: entry.patternId,
+          domain: entry.domain,
+        }),
+      ]),
+    );
+
+    let cardsUpdated = 0;
+    let exerciseTemplatesUpdated = 0;
+    let exercisesUpdated = 0;
+
+    const cards = await ctx.db.query("cards").collect();
+    for (const card of cards) {
+      const curriculum = deriveCardCurriculum(card);
+      if (
+        curriculum.phase === card.phase &&
+        curriculum.patternId === card.patternId &&
+        curriculum.domain === card.domain
+      ) {
+        continue;
+      }
+      await ctx.db.patch(card._id, curriculum);
+      cardsUpdated += 1;
+    }
+
+    const templateRows = await ctx.db.query("exerciseTemplates").collect();
+    for (const row of templateRows) {
+      const curriculum = deriveTemplateCurriculum({
+        title: row.title,
+        level: row.level,
+        type: row.type,
+        tags: row.tags,
+        errorFocus: row.errorFocus,
+        content: row.content,
+        phase: row.phase,
+        patternId: row.patternId,
+        domain: row.domain,
+      });
+      if (
+        curriculum.phase === row.phase &&
+        curriculum.patternId === row.patternId &&
+        curriculum.domain === row.domain
+      ) {
+        continue;
+      }
+      await ctx.db.patch(row._id, curriculum);
+      exerciseTemplatesUpdated += 1;
+    }
+
+    const exerciseRows = await ctx.db.query("exercises").collect();
+    for (const row of exerciseRows) {
+      const fromTemplate = row.variantKey ? templateMetadataByVariant.get(row.variantKey) : null;
+      const curriculum =
+        fromTemplate ??
+        deriveTemplateCurriculum({
+          title: typeof row.content?.pattern_name === "string" ? row.content.pattern_name : undefined,
+          level: row.difficulty ?? "A1",
+          type: row.type,
+          tags:
+            typeof row.content?.tag === "string"
+              ? [row.content.tag]
+              : undefined,
+          content: row.content,
+          phase: row.phase,
+          patternId: row.patternId,
+          domain: row.domain,
+        });
+      if (
+        curriculum.phase === row.phase &&
+        curriculum.patternId === row.patternId &&
+        curriculum.domain === row.domain
+      ) {
+        continue;
+      }
+      await ctx.db.patch(row._id, curriculum);
+      exercisesUpdated += 1;
+    }
+
+    return { cardsUpdated, exerciseTemplatesUpdated, exercisesUpdated };
   },
 });
 
@@ -544,8 +650,20 @@ export const seedExerciseTemplates = mutation({
     let updated = 0;
     for (const entry of entries) {
       const { missionId, ...rest } = entry as any;
+      const curriculum = deriveTemplateCurriculum({
+        title: rest.title,
+        level: rest.level,
+        type: rest.type,
+        tags: rest.tags,
+        errorFocus: rest.errorFocus,
+        content: rest.content,
+        phase: rest.phase,
+        patternId: rest.patternId,
+        domain: rest.domain,
+      });
       const payload = {
         ...rest,
+        ...curriculum,
         originMissionId: missionId,
       };
       const existing = await ctx.db
@@ -584,8 +702,20 @@ export const rebuildExerciseTemplates = mutation({
     let inserted = 0;
     for (const entry of EXERCISE_TEMPLATES) {
       const { missionId, ...rest } = entry as any;
+      const curriculum = deriveTemplateCurriculum({
+        title: rest.title,
+        level: rest.level,
+        type: rest.type,
+        tags: rest.tags,
+        errorFocus: rest.errorFocus,
+        content: rest.content,
+        phase: rest.phase,
+        patternId: rest.patternId,
+        domain: rest.domain,
+      });
       await ctx.db.insert("exerciseTemplates", {
         ...rest,
+        ...curriculum,
         originMissionId: missionId,
       });
       inserted += 1;

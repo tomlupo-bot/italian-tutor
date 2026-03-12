@@ -238,6 +238,9 @@ export interface Exercise {
   variantKey?: string;
   staleAfter?: string;
   difficulty: string;
+  phase?: string;
+  patternId?: string;
+  domain?: string;
   completed: boolean;
   result?: ExerciseResult;
   source: ExerciseSource;

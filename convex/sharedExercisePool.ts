@@ -7,6 +7,9 @@ export type SharedExerciseTemplate = {
   skillId?: string | null;
   tags: string[];
   errorFocus: string[];
+  phase?: string | null;
+  patternId?: string | null;
+  domain?: string | null;
   variantKey: string;
   content: any;
   active: boolean;
@@ -30,36 +33,48 @@ type SelectorArgs = {
 
 const PATTERN_FOCUS_SIGNALS: Record<
   string,
-  { types?: string[]; tags?: string[]; errorFocus?: string[] }
+  { types?: string[]; tags?: string[]; domains?: string[]; patternIds?: string[]; errorFocus?: string[] }
 > = {
   requests_and_needs: {
     types: ["word_builder", "pattern_drill", "speed_translation", "cloze"],
     tags: ["food", "travel", "shopping", "health", "home", "bureaucracy"],
+    domains: ["food", "shopping", "health", "bureaucracy", "requests"],
+    patternIds: ["polite_request_vorrei", "need_ho_bisogno_di", "ability_posso", "want_voglio"],
     errorFocus: ["lexical_gap", "pragmatic_mismatch", "incomplete_response"],
   },
   movement_and_location: {
     types: ["cloze", "pattern_drill", "speed_translation", "word_builder"],
     tags: ["travel", "transport", "home", "housing"],
+    domains: ["travel", "housing", "movement", "location"],
+    patternIds: ["movement_vado", "location_essere"],
     errorFocus: ["preposition", "instruction_misread"],
   },
   past_events: {
     types: ["cloze", "pattern_drill", "speed_translation"],
     tags: ["travel", "routine", "work", "social"],
+    domains: ["past_events", "routine", "travel", "work", "social"],
+    patternIds: ["past_ho_participio", "duration_da"],
     errorFocus: ["verb_tense", "verb_conjugation"],
   },
   preferences_and_opinions: {
     types: ["word_builder", "cloze", "speed_translation", "pattern_drill"],
     tags: ["food", "shopping", "social", "media"],
+    domains: ["preferences", "opinions", "food", "shopping", "social", "media"],
+    patternIds: ["like_mi_piace", "preference_preferisco", "opinion_secondo_me"],
     errorFocus: ["lexical_choice", "agreement", "off_topic"],
   },
   plans_and_reasons: {
     types: ["pattern_drill", "word_builder", "cloze", "speed_translation"],
     tags: ["planning", "routine", "work", "travel", "social"],
+    domains: ["plans", "reasons", "routine", "work", "travel", "social"],
+    patternIds: ["plan_penso_di", "future_simple", "explanation_perche", "obligation_devo"],
     errorFocus: ["word_order", "verb_tense", "incomplete_response"],
   },
   conversation_repair: {
     types: ["pattern_drill", "error_hunt", "conversation", "reflection"],
     tags: ["social", "work", "travel", "bureaucracy"],
+    domains: ["conversation", "social", "work", "travel", "bureaucracy"],
+    patternIds: ["conversation_repair", "ability_posso"],
     errorFocus: ["pragmatic_mismatch", "off_topic", "incomplete_response"],
   },
 };
@@ -117,6 +132,9 @@ export function scoreTemplate(template: SharedExerciseTemplate, args: Omit<Selec
       patternSignals.errorFocus?.includes(focus)
     ).length;
     score += patternErrorOverlap * 7;
+
+    if (template.patternId && patternSignals.patternIds?.includes(template.patternId)) score += 18;
+    if (template.domain && patternSignals.domains?.includes(template.domain)) score += 10;
   }
 
   if (template.type === "conversation" || template.type === "reflection") score += 2;

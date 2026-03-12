@@ -752,10 +752,13 @@ export const FAST_TRACK_DOCS_CONTENT: FastTrackDocsContentEntry[] = [
   },
 ];
 
-export const FAST_TRACK_DOCS_SEED_CARDS = FAST_TRACK_DOCS_CONTENT.map(({ it, en, example, tag, level }) => ({
+export const FAST_TRACK_DOCS_SEED_CARDS = FAST_TRACK_DOCS_CONTENT.map(({ it, en, example, tag, level, phase, patternId, domain }) => ({
   it,
   en,
   example,
   tag,
   level,
+  phase,
+  patternId,
+  domain,
 }));

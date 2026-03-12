@@ -29,12 +29,25 @@ function extractArray(source, name) {
 const progressionSource = fs.readFileSync(new URL("../convex/progressionCatalog.ts", import.meta.url), "utf8");
 const MISSIONS = extractArray(progressionSource, "MISSIONS");
 
+const metadataSource = fs.readFileSync(new URL("../convex/curriculumMetadata.ts", import.meta.url), "utf8");
+const executableMetadataSource = ts.transpileModule(metadataSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020,
+  },
+}).outputText;
+const metadataContext = { result: null, exports: {}, module: { exports: {} } };
+vm.runInNewContext(
+  `${executableMetadataSource}\nresult = { deriveTemplateCurriculum: exports.deriveTemplateCurriculum };`,
+  metadataContext,
+);
+
 const templateSource = fs.readFileSync(new URL("../convex/exerciseTemplatesData.ts", import.meta.url), "utf8");
 const executableTemplateSource = templateSource
-  .replace(/^import .*$/m, "")
+  .replace(/^import .*$/gm, "")
   .replace(/export const /g, "const ");
 
-const templateContext = { MISSIONS, result: null };
+const templateContext = { MISSIONS, deriveTemplateCurriculum: metadataContext.result.deriveTemplateCurriculum, result: null };
 vm.runInNewContext(`${executableTemplateSource}\nresult = EXERCISE_TEMPLATES;`, templateContext);
 const entries = templateContext.result;
 

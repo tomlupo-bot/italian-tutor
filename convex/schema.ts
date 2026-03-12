@@ -31,6 +31,9 @@ export default defineSchema({
     variantKey: v.optional(v.string()), // dedupe or rotate scenario variants
     staleAfter: v.optional(v.string()), // YYYY-MM-DD soft freshness boundary
     difficulty: v.optional(v.string()), // A1/A2/B1/B2
+    phase: v.optional(v.string()), // phase_1|phase_2|phase_3
+    patternId: v.optional(v.string()),
+    domain: v.optional(v.string()),
     completed: v.boolean(), // user has done this exercise
     result: v.optional(v.any()), // score/answers after completion
     source: v.optional(v.string()),
@@ -125,6 +128,9 @@ export default defineSchema({
     explanation: v.optional(v.string()),
     tag: v.optional(v.string()),
     level: v.optional(v.string()),
+    phase: v.optional(v.string()),
+    patternId: v.optional(v.string()),
+    domain: v.optional(v.string()),
     source: v.union(
       v.literal("seed"),
       v.literal("mission_topup"),
@@ -172,6 +178,9 @@ export default defineSchema({
     skillId: v.optional(v.string()),
     tags: v.array(v.string()),
     errorFocus: v.array(v.string()),
+    phase: v.optional(v.string()),
+    patternId: v.optional(v.string()),
+    domain: v.optional(v.string()),
     variantKey: v.string(),
     content: v.any(),
     active: v.boolean(),
