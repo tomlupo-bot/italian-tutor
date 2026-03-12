@@ -94,7 +94,7 @@ npx convex dev
 - Use `learnerState.getSnapshot` as the main learner-facing runtime state model.
 - Use mission catalog data for mission behavior and progression context.
 - Use `contentAudit.getCurriculumSummary` for curriculum coverage and metadata audit work.
-- For Marco/app-aware tutoring work, prefer [skills/openclaw/italian-tutor/SKILL.md](/home/twilc/projects/italian-tutor/italian-tutor/skills/openclaw/italian-tutor/SKILL.md).
+- For Marco/app-aware tutoring work, prefer `skills/openclaw/italian-tutor/SKILL.md`.
 
 ## Verification Expectations
 
