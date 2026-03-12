@@ -1,6 +1,12 @@
 const CACHE_NAME = "marco-v15";
 const TTS_CACHE = "marco-tts-v1";
-const BASE_PATH = "/tutor";
+
+function getBasePath() {
+  const scope = self.registration?.scope;
+  if (!scope) return "";
+  const pathname = new URL(scope).pathname.replace(/\/+$/, "");
+  return pathname === "/" ? "" : pathname;
+}
 
 // App shell files to precache
 const PRECACHE_URLS = [
@@ -13,8 +19,17 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener("install", (event) => {
+  const basePath = getBasePath();
+  const precacheUrls = [
+    `${basePath}/`,
+    `${basePath}/practice`,
+    `${basePath}/drills`,
+    `${basePath}/calendar`,
+    `${basePath}/progress`,
+    `${basePath}/offline`,
+  ];
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(precacheUrls))
   );
   self.skipWaiting();
 });
@@ -35,12 +50,13 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+  const basePath = getBasePath();
 
   // Skip non-GET and cross-origin requests
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
   // TTS audio — cache-first (audio doesn't change for same text)
-  if (url.pathname === `${BASE_PATH}/api/tts`) {
+  if (url.pathname === `${basePath}/api/tts`) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
@@ -65,7 +81,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Skip other API routes and Convex — always go to network
-  if (url.pathname.startsWith(`${BASE_PATH}/api/`) || url.hostname.includes("convex")) {
+  if (url.pathname.startsWith(`${basePath}/api/`) || url.hostname.includes("convex")) {
     return;
   }
 
@@ -79,7 +95,7 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() =>
-          caches.match(request).then((r) => r || caches.match(`${BASE_PATH}/offline`))
+          caches.match(request).then((r) => r || caches.match(`${basePath}/offline`))
         )
     );
     return;
@@ -92,7 +108,7 @@ self.addEventListener("fetch", (event) => {
       return fetch(request).then((response) => {
         if (
           response.ok &&
-          (url.pathname.startsWith("/_next/") || url.pathname.startsWith(`${BASE_PATH}/icons/`))
+          (url.pathname.startsWith("/_next/") || url.pathname.startsWith(`${basePath}/icons/`))
         ) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));

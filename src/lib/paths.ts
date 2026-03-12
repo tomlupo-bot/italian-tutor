@@ -9,6 +9,7 @@ export function withBasePath(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   const needsManualPrefix =
     normalized === "/manifest.json" ||
+    normalized === "/sw.js" ||
     normalized.startsWith("/api/") ||
     normalized.startsWith("/icons/");
   if (!needsManualPrefix) return normalized;

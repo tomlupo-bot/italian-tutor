@@ -4,8 +4,10 @@ This app now has two complementary testing layers:
 
 - Chrome MCP for fast manual verification of real user flows
 - Playwright for repeatable end-to-end regression checks
+- a production-style `/tutor` smoke harness for mounted-prefix routing verification
 
 Use both. Chrome MCP is better for exploratory validation and debugging. Playwright is better for stable smoke tests after frontend or backend changes.
+The `/tutor` smoke harness is the fastest way to catch base-path regressions that may not appear in `next dev`.
 
 Playwright should run against a production-style server by default. This repo previously used `next dev` for e2e, but that proved flaky because Next 15 dev mode intermittently broke `.next` manifests and chunk loading. The default Playwright config now runs `next build && next start`.
 
@@ -63,14 +65,34 @@ npm test
 ```
 
 ```bash
+npm run smoke:prefix
+```
+
+```bash
 npm run test:e2e
 ```
 
-This does three things:
+`npm run smoke:prefix` does four things:
+
+1. builds the app with `NEXT_PUBLIC_BASE_PATH=/tutor`
+2. starts `next start` on a temporary local port
+3. probes key mounted routes under `/tutor`
+4. shuts the server down automatically
+
+`npm run test:e2e` does three things:
 
 1. resets app state in Convex
 2. builds the app
 3. runs Playwright against `next start`
+
+Use the prefix smoke check whenever a change touches:
+
+- `NEXT_PUBLIC_BASE_PATH`
+- path helpers
+- redirects
+- manifest or icon URLs
+- service worker registration or cache behavior
+- proxy-mounted deployment assumptions
 
 Run Playwright against an already running local server:
 
@@ -107,12 +129,14 @@ Use that only for interactive debugging. For reliable regression checks, prefer 
 Use this order after non-trivial changes:
 
 1. `npm test`
-2. Chrome MCP manual smoke flow
-3. `npm run test:e2e`
+2. `npm run smoke:prefix`
+3. Chrome MCP manual smoke flow
+4. `npm run test:e2e`
 
 That catches:
 
 - pure logic regressions
+- mounted-prefix routing regressions
 - UI/copy/navigation issues
 - end-to-end flow breakage
 
@@ -139,5 +163,6 @@ The goal is regression protection, not snapshotting every runtime detail.
 ## Notes
 
 - If Convex bindings or schema feel stale, run `npx convex dev`.
+- If a route works in `next dev` but fails under `/tutor`, trust `npm run smoke:prefix` over the dev rewrite behavior.
 - If Playwright fails because the app server is not reachable, prefer rerunning `npm run test:e2e` before debugging app logic.
 - If you are debugging with `next dev` and local build artifacts under `.next` are in a bad state, restart the dev server before chasing app-level failures.
