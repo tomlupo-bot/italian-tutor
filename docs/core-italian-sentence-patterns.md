@@ -1,5 +1,11 @@
 # Core Italian Sentence Patterns
 
+Status:
+
+- supporting reference
+- read together with [product-spec.md](/home/twilc/projects/italian-tutor/italian-tutor/docs/product-spec.md)
+- if this document conflicts with the product spec, follow the product spec
+
 ## Purpose
 
 This document defines a compact set of reusable Italian sentence patterns for fast functional progress.

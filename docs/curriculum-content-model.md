@@ -1,5 +1,11 @@
 # Curriculum Content Model
 
+Status:
+
+- supporting reference
+- read together with [product-spec.md](/home/twilc/projects/italian-tutor/italian-tutor/docs/product-spec.md)
+- if this document conflicts with the product spec, follow the product spec
+
 ## Purpose
 
 This document defines the content metadata and quality contract for learner-facing curriculum items in Italian Tutor.
