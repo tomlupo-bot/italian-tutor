@@ -169,12 +169,7 @@ export const bulkAdd = mutation({
       // Deduplicate by Italian text — skip if card already exists
       const existing = await ctx.db
         .query("cards")
-        .withIndex("by_it_direction", (q) =>
-          q.and(
-            q.eq("it", card.it),
-            q.eq("direction", direction)
-          )
-        )
+        .withIndex("by_it_direction", (q) => q.eq("it", card.it).eq("direction", direction))
         .first();
       if (existing) {
         await ctx.db.patch(existing._id, {
@@ -216,9 +211,7 @@ export const updateExplanation = mutation({
     const direction = DEFAULT_DIRECTION;
     const card = await ctx.db
       .query("cards")
-      .withIndex("by_it_direction", (q) =>
-        q.and(q.eq("it", args.it), q.eq("direction", direction))
-      )
+      .withIndex("by_it_direction", (q) => q.eq("it", args.it).eq("direction", direction))
       .first();
     if (!card) return { updated: false };
     await ctx.db.patch(card._id, { explanation: args.explanation });
@@ -401,9 +394,7 @@ export const upsert = mutation({
     const direction = resolveDirection(args.direction);
     const existing = await ctx.db
       .query("cards")
-      .withIndex("by_it_direction", (q) =>
-        q.and(q.eq("it", args.it), q.eq("direction", direction))
-      )
+      .withIndex("by_it_direction", (q) => q.eq("it", args.it).eq("direction", direction))
       .first();
 
     const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Warsaw" });
